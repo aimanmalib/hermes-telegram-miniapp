@@ -1,130 +1,167 @@
 """Telegram Mini App plugin — backend API routes.
 
-Mounted by Hermes dashboard plugin loader at ``/api/plugins/telegram-app/``.
+Mounted by the Hermes dashboard plugin loader at ``/api/plugins/telegram-app/``.
 
 Auth model
 ----------
-Hermes dashboard already gates every ``/api/*`` route with an ephemeral
-session token (``X-Hermes-Session-Token``). The plugin lets two paths
-through *without* that token by adding them to the public-paths set:
+Hermes gates every ``/api/*`` route with the dashboard session token
+(``X-Hermes-Session-Token``). This plugin lets two paths through *without*
+that token by adding them to the dashboard's public-path set:
 
-  /api/plugins/telegram-app/health        — no auth, used by Caddy/uptime
+  /api/plugins/telegram-app/health        — liveness, no secrets
   /api/plugins/telegram-app/auth/verify   — accepts Telegram initData and
-                                            issues the dashboard session token
+                                            returns the dashboard session token
 
-A Telegram Mini App client therefore:
+The Mini App then:
 
-  1. Loads with ``window.Telegram.WebApp.initData`` from Telegram.
-  2. Calls ``/auth/verify`` posting initData; the plugin validates it
-     (HMAC-SHA256 with bot token, with Ed25519 fallback against Telegram's
-     published public key).
-  3. Receives the upstream dashboard session token in the JSON response.
-  4. Sends ``X-Hermes-Session-Token: <token>`` on every subsequent
-     dashboard API call. The upstream middleware accepts those calls
-     normally — we don't fork the auth system.
+  1. Reads ``window.Telegram.WebApp.initData``.
+  2. POSTs it to ``/auth/verify``. The plugin verifies the signature (HMAC-SHA256
+     keyed by the bot token; Ed25519 against Telegram's public key as a
+     fallback), rejects stale ``auth_date`` values and checks the user against
+     an explicit allowlist (see ``tg_auth.py``).
+  3. Receives the dashboard session token and sends it as
+     ``X-Hermes-Session-Token`` on every later call, so the dashboard's own
+     auth middleware does the rest.
 
-Everything below ``/api/plugins/telegram-app/...`` aside from health and
-auth/verify is just convenience wrappers (status, sessions, cron) that
-operate inside the dashboard process and rely on upstream auth.
+Every other route below relies on that upstream middleware.
 """
 
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
+import importlib.util
 import json
 import logging
 import os
 import sys
 import time
-import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Request, Response
+from pydantic import BaseModel, Field
 
-HERMES_ROOT = Path("/usr/local/lib/hermes-agent")
-if HERMES_ROOT.exists() and str(HERMES_ROOT) not in sys.path:
-    sys.path.insert(0, str(HERMES_ROOT))
+_HERE = Path(__file__).resolve().parent
 
 router = APIRouter()
 _log = logging.getLogger("hermes.plugin.telegram-app")
 _start_time = time.time()
 
 
+def _load_sibling(name: str):
+    """Import a module that lives next to this file under a unique name.
+
+    Hermes imports ``plugin_api.py`` with ``spec_from_file_location`` (not as a
+    package), so ``from . import x`` does not work, and putting this directory
+    on ``sys.path`` would let a generic name like ``alerts`` collide with any
+    other module of that name.
+    """
+    mod_name = f"hermes_tma_{name}"
+    if mod_name in sys.modules:
+        return sys.modules[mod_name]
+    spec = importlib.util.spec_from_file_location(mod_name, _HERE / f"{name}.py")
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {name}.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[mod_name] = mod
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        sys.modules.pop(mod_name, None)
+        raise
+    return mod
+
+
+tg_auth = _load_sibling("tg_auth")
+
+
+def _plugin_version() -> str:
+    try:
+        return str(json.loads((_HERE / "manifest.json").read_text("utf-8")).get("version", "0.0.0"))
+    except Exception:
+        return "0.0.0"
+
+
+_VERSION = _plugin_version()
+
+
+def _hermes_home() -> Path:
+    """Hermes home directory: Hermes' own resolver when available, else $HERMES_HOME or ~/.hermes."""
+    try:
+        from hermes_constants import get_hermes_home  # type: ignore
+
+        return Path(get_hermes_home())
+    except Exception:
+        env = os.environ.get("HERMES_HOME", "").strip()
+        return Path(env).expanduser() if env else Path.home() / ".hermes"
+
+
 # ---------------------------------------------------------------------------
-# Patch upstream's public-paths set so /health and /auth/verify pass through
-# the dashboard's auth middleware. This is done at plugin import time.
+# Public paths. Hermes has no plugin API for declaring unauthenticated routes,
+# so we add ours to ``hermes_cli.web_server._PUBLIC_API_PATHS`` at import time.
+# The loopback auth middleware looks that module global up on every request.
+# The OAuth-gated mode (``auth_required``) uses a separate list and cookie
+# auth, and is not supported by this plugin.
 # ---------------------------------------------------------------------------
-def _allow_public(paths: List[str]) -> None:
+PUBLIC_PATHS = (
+    "/api/plugins/telegram-app/health",
+    "/api/plugins/telegram-app/auth/verify",
+)
+
+
+def _allow_public(paths: Tuple[str, ...]) -> None:
     try:
         import hermes_cli.web_server as ws  # type: ignore
-        # _PUBLIC_API_PATHS is a frozenset; rebuild it as a frozenset with
-        # our paths added so the membership check at line ~240 passes.
+
         existing = set(getattr(ws, "_PUBLIC_API_PATHS", frozenset()))
         existing.update(paths)
         ws._PUBLIC_API_PATHS = frozenset(existing)
-        _log.info("telegram-app: registered public paths %s", paths)
+        _log.info("telegram-app: registered public paths %s", list(paths))
     except Exception as exc:
-        _log.warning("telegram-app: could not patch _PUBLIC_API_PATHS: %s", exc)
+        _log.warning("telegram-app: could not register public paths: %s", exc)
 
 
-_allow_public([
-    "/api/plugins/telegram-app/health",
-    "/api/plugins/telegram-app/auth/verify",
-])
+_allow_public(PUBLIC_PATHS)
 
 
 # ---------------------------------------------------------------------------
-# Alerts watcher — starts a background thread on first import that polls
-# cron jobs / errors.log / daily cost and DMs the owner via the bot.
+# Alerts watcher — background thread that DMs the owner about cron failures,
+# error-log bursts and daily spend.
 # ---------------------------------------------------------------------------
 try:
-    from . import alerts as _alerts  # type: ignore
-except Exception:
-    # Plugin loader runs us as a top-level module, not a package — try the
-    # sibling-file import.
-    try:
-        import sys as _sys
-        _here = Path(__file__).parent
-        if str(_here) not in _sys.path:
-            _sys.path.insert(0, str(_here))
-        import alerts as _alerts  # type: ignore
-    except Exception as _exc:
-        _alerts = None  # type: ignore
-        _log.warning("alerts module unavailable: %s", _exc)
+    _alerts = _load_sibling("alerts")
+except Exception as _exc:  # pragma: no cover - defensive
+    _alerts = None
+    _log.warning("telegram-app: alerts module unavailable: %s", _exc)
 
-if _alerts is not None:
+if _alerts is not None and os.environ.get("TELEGRAM_APP_ALERTS_DISABLED", "") != "1":
     try:
         _alerts.ensure_started()
     except Exception as _exc:
-        _log.warning("alerts ensure_started failed: %s", _exc)
+        _log.warning("telegram-app: alerts ensure_started failed: %s", _exc)
 
 
 def _get_session_token() -> str:
-    """Fetch the dashboard session token from the running web_server module.
+    """The running dashboard's session token (``hermes_cli.web_server._SESSION_TOKEN``).
 
-    Token is generated fresh on every server start (web_server.py:_SESSION_TOKEN)
-    and never persisted. We just need to read it from the same process.
+    Read at request time: Hermes may rebind it (desktop/SSH launches).
     """
     try:
         import hermes_cli.web_server as ws  # type: ignore
+
         return getattr(ws, "_SESSION_TOKEN", "") or ""
     except Exception:
         return ""
 
 
 # ---------------------------------------------------------------------------
-# Config — read at request time so .env edits picked up without reload.
+# Config — read at request time so .env edits are picked up without a restart.
 # ---------------------------------------------------------------------------
 def _env(name: str, default: str = "") -> str:
     val = os.getenv(name, "").strip()
     if val:
         return val
-    env_file = Path.home() / ".hermes" / ".env"
+    env_file = _hermes_home() / ".env"
     if env_file.exists():
         for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
             line = line.strip()
@@ -141,141 +178,26 @@ def _bot_token() -> str:
 
 
 def _allowed_user_ids() -> List[str]:
-    raw = _env("TELEGRAM_OWNER_ID") or _env("TELEGRAM_ALLOWED_USERS")
-    return [x.strip() for x in raw.split(",") if x.strip()]
+    """Union of TELEGRAM_OWNER_ID and TELEGRAM_ALLOWED_USERS (numeric ids, owner first)."""
+    ids: List[str] = []
+    for raw in (_env("TELEGRAM_OWNER_ID"), _env("TELEGRAM_ALLOWED_USERS")):
+        for uid in tg_auth.parse_allowlist(raw):
+            if uid not in ids:
+                ids.append(uid)
+    return ids
 
 
-# Telegram production Ed25519 public key (32 bytes hex).
-# Ref: https://core.telegram.org/bots/webapps#validating-data-for-third-party-use
-TELEGRAM_ED25519_PUBKEY_HEX = (
-    "e7bf03a2fa4602af4580703d88dda5bb59f32ed8b02a56c187fe7d34caed242d"
-)
+def _max_age() -> int:
+    return tg_auth.parse_max_age(_env("TELEGRAM_INITDATA_MAX_AGE"))
 
 
-# ---------------------------------------------------------------------------
-# Telegram initData validation — HMAC primary, Ed25519 fallback.
-# ---------------------------------------------------------------------------
-def _parse_init_data(init_data: str) -> Dict[str, Any]:
-    """Parse the URL-encoded initData query string.
-
-    Telegram now ships *both* ``hash`` (HMAC) and ``signature`` (Ed25519)
-    in the same payload. For HMAC validation only ``hash`` is excluded
-    from the data_check_string — ``signature`` is treated like any other
-    data field. Ed25519 validation uses a different DCS (built separately
-    in ``_validate_ed25519``) that excludes ``signature`` itself but
-    includes ``hash``. Reference:
-    https://core.telegram.org/bots/webapps#validating-data-for-third-party-use
-    """
-    pairs: Dict[str, str] = {}
-    hash_val: Optional[str] = None
-    signature: Optional[str] = None
-    for part in init_data.split("&"):
-        if "=" not in part:
-            continue
-        k, _, v = part.partition("=")
-        v_dec = urllib.parse.unquote(v)
-        if k == "hash":
-            hash_val = v_dec
-            continue
-        if k == "signature":
-            signature = v_dec
-            # signature is *also* part of the HMAC data_check_string.
-            pairs[k] = v_dec
-            continue
-        pairs[k] = v_dec
-    sorted_kv = sorted(pairs.items())
-    data_check_string = "\n".join(f"{k}={v}" for k, v in sorted_kv)
-    return {
-        "raw_pairs": pairs,
-        "hash": hash_val,
-        "signature": signature,
-        "data_check_string": data_check_string,
-    }
+_limiter = tg_auth.FailureLimiter(max_failures=10, window_sec=300)
 
 
-def _validate_hmac(parsed: Dict[str, Any]) -> bool:
-    token = _bot_token()
-    if not token or not parsed.get("hash"):
-        return False
-    secret = hmac.new(b"WebAppData", token.encode("utf-8"), hashlib.sha256).digest()
-    computed = hmac.new(
-        secret, parsed["data_check_string"].encode("utf-8"), hashlib.sha256
-    ).hexdigest()
-    return hmac.compare_digest(computed, parsed["hash"])
-
-
-def _validate_ed25519(parsed: Dict[str, Any]) -> bool:
-    sig_b64 = parsed.get("signature")
-    if not sig_b64:
-        return False
-    try:
-        from cryptography.hazmat.primitives.asymmetric.ed25519 import (
-            Ed25519PublicKey,
-        )
-    except ImportError:
-        _log.warning("cryptography missing — Ed25519 validation skipped")
-        return False
-    pubkey = Ed25519PublicKey.from_public_bytes(
-        bytes.fromhex(TELEGRAM_ED25519_PUBKEY_HEX)
-    )
-    padding = "=" * (-len(sig_b64) % 4)
-    try:
-        sig_bytes = base64.urlsafe_b64decode(sig_b64 + padding)
-    except Exception as exc:
-        _log.debug("ed25519 sig decode fail: %s", exc)
-        return False
-    # Ed25519 DCS *excludes* signature but *includes* hash. Build it
-    # from raw_pairs (which already contains signature for HMAC) by
-    # dropping signature and adding hash back.
-    fields = {k: v for k, v in parsed["raw_pairs"].items() if k != "signature"}
-    if parsed.get("hash"):
-        fields["hash"] = parsed["hash"]
-    ed_dcs = "\n".join(f"{k}={v}" for k, v in sorted(fields.items()))
-    try:
-        pubkey.verify(sig_bytes, ed_dcs.encode("utf-8"))
-        return True
-    except Exception as exc:
-        _log.debug("ed25519 verify fail: %s", exc)
-        return False
-
-
-def _validate_init_data(init_data: str) -> Optional[Dict[str, Any]]:
-    if not init_data:
-        return None
-    parsed = _parse_init_data(init_data)
-    auth_date_str = parsed["raw_pairs"].get("auth_date", "0")
-    try:
-        auth_date = int(auth_date_str)
-    except ValueError:
-        return None
-    if auth_date and (time.time() - auth_date) > 86400:
-        _log.warning("initData expired age=%ds", int(time.time() - auth_date))
-        return None
-
-    hmac_ok = _validate_hmac(parsed)
-    ed_ok = _validate_ed25519(parsed) if not hmac_ok else False
-    if not (hmac_ok or ed_ok):
-        _log.warning(
-            "initData failed: keys=%s has_sig=%s",
-            sorted(parsed["raw_pairs"].keys()),
-            bool(parsed.get("signature")),
-        )
-        return None
-
-    user_json = parsed["raw_pairs"].get("user")
-    if not user_json:
-        return None
-    try:
-        user = json.loads(user_json)
-    except Exception:
-        return None
-
-    user_id = str(user.get("id", ""))
-    allowed = _allowed_user_ids()
-    if allowed and user_id not in allowed:
-        _log.warning("user %s not in allowlist %s", user_id, allowed)
-        return None
-    return user
+def _client_key(request: Request) -> str:
+    # Behind a reverse proxy every request comes from the proxy address, so
+    # this degrades to one global bucket — acceptable for a single-owner panel.
+    return request.client.host if request.client else "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -283,40 +205,58 @@ def _validate_init_data(init_data: str) -> Optional[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 @router.get("/health")
 async def health():
-    """Public — no auth required. Used by Caddy / uptime checks."""
+    """Public — no auth required. Used by reverse proxies / uptime checks."""
     return {
         "ok": True,
         "plugin": "telegram-app",
-        "version": "0.1.0",
+        "version": _VERSION,
         "uptime_sec": int(time.time() - _start_time),
     }
 
 
 class _AuthVerifyBody(BaseModel):
-    init_data: str
+    init_data: str = Field(..., max_length=tg_auth.MAX_INIT_DATA_LEN)
 
 
 @router.post("/auth/verify")
-async def auth_verify(body: _AuthVerifyBody, request: Request):
-    """Validate Telegram initData and return the dashboard session token.
+async def auth_verify(body: _AuthVerifyBody, request: Request, response: Response):
+    """Verify Telegram initData and return the dashboard session token.
 
-    The frontend stores the returned token and sends it as
-    ``X-Hermes-Session-Token`` on every subsequent API call. Upstream
-    auth middleware accepts those calls without further modification.
+    Every rejection returns the same 403 so callers cannot tell which check
+    failed; the reason is logged server-side (never the initData itself).
     """
-    if not body.init_data:
-        raise HTTPException(status_code=400, detail="init_data required")
+    response.headers["Cache-Control"] = "no-store"
+    key = _client_key(request)
+    wait = _limiter.retry_after(key)
+    if wait:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed attempts",
+            headers={"Retry-After": str(wait)},
+        )
 
-    user = _validate_init_data(body.init_data)
-    if not user:
+    try:
+        user = tg_auth.verify_init_data(
+            body.init_data,
+            bot_token=_bot_token(),
+            allowed_user_ids=_allowed_user_ids(),
+            max_age_sec=_max_age(),
+            bot_id=_env("TELEGRAM_BOT_ID") or None,
+        )
+    except tg_auth.InitDataError as exc:
+        if exc.reason in ("bot_token_unset", "allowlist_unset"):
+            _log.error(
+                "telegram-app: refusing login, %s (set TELEGRAM_BOT_TOKEN and "
+                "TELEGRAM_OWNER_ID or TELEGRAM_ALLOWED_USERS)", exc.reason,
+            )
+            raise HTTPException(status_code=503, detail="Mini App login is not configured")
+        _limiter.record_failure(key)
+        _log.warning("telegram-app: initData rejected (%s)", exc.reason)
         raise HTTPException(status_code=403, detail="Invalid Telegram initData")
 
     token = _get_session_token()
     if not token:
-        raise HTTPException(
-            status_code=503,
-            detail="Dashboard session token unavailable",
-        )
+        raise HTTPException(status_code=503, detail="Dashboard session token unavailable")
 
     return {
         "ok": True,
@@ -326,42 +266,7 @@ async def auth_verify(body: _AuthVerifyBody, request: Request):
             "first_name": user.get("first_name"),
             "username": user.get("username"),
             "language_code": user.get("language_code"),
-            "is_premium": user.get("is_premium", False),
-        },
-        "expires_at": int(time.time()) + 86400,
-    }
-
-
-@router.get("/auth/verify")
-async def auth_verify_get(request: Request):
-    """GET version for browsers — accepts initData via header.
-
-    Useful for desktop testing where you can paste a header but not a body.
-    The Telegram Mini App SDK sends initData on a POST in production.
-    """
-    init_data = request.headers.get("x-telegram-init-data", "")
-    if not init_data:
-        # Empty initData → return a "not logged in" stub for the frontend
-        # to know we're reachable but unauthenticated.
-        return {"ok": False, "reason": "no_init_data"}
-
-    user = _validate_init_data(init_data)
-    if not user:
-        raise HTTPException(status_code=403, detail="Invalid Telegram initData")
-
-    token = _get_session_token()
-    if not token:
-        raise HTTPException(
-            status_code=503, detail="Dashboard session token unavailable"
-        )
-
-    return {
-        "ok": True,
-        "session_token": token,
-        "user": {
-            "id": user.get("id"),
-            "first_name": user.get("first_name"),
-            "username": user.get("username"),
+            "is_premium": bool(user.get("is_premium", False)),
         },
     }
 
@@ -400,7 +305,11 @@ async def status_endpoint():
     sessions_count = 0
     try:
         from hermes_state import SessionDB  # type: ignore
-        sessions_count = len(SessionDB().list_sessions(limit=1000))
+        db = SessionDB()
+        if hasattr(db, "session_count"):
+            sessions_count = int(db.session_count())
+        else:  # older Hermes
+            sessions_count = len(db.list_sessions_rich(limit=1000))
     except Exception:
         pass
 
@@ -624,7 +533,7 @@ async def cron_delete(job_id: str):
 # Skills index + memory dump (read-only).
 # ---------------------------------------------------------------------------
 def _skills_root() -> Path:
-    return Path.home() / ".hermes" / "skills"
+    return _hermes_home() / "skills"
 
 
 def _parse_skill_meta(skill_md: Path) -> Dict[str, Any]:
@@ -714,7 +623,7 @@ async def skill_view(skill_id: str):
 @router.get("/memory")
 async def memory_dump():
     """Return the agent's persistent memory + user profile (read-only)."""
-    base = Path.home() / ".hermes" / "memories"
+    base = _hermes_home() / "memories"
     out: Dict[str, Any] = {"root": str(base), "files": {}}
     for label, fname in (("memory", "MEMORY.md"), ("user", "USER.md")):
         path = base / fname
@@ -932,7 +841,7 @@ async def logs_tail(
             )
         min_priority = _LEVEL_PRIORITY[level_upper]
 
-    log_path = Path.home() / ".hermes" / "logs" / f"{file}.log"
+    log_path = _hermes_home() / "logs" / f"{file}.log"
     # Read 4× requested so the post-filter slice has room.
     raw = _tail_file(log_path, lines * 4 if min_priority else lines)
 
@@ -961,39 +870,44 @@ async def logs_tail(
     }
 
 
-@router.post("/cron/{job_id}/pause")
-async def cron_pause(job_id: str):
+def _cron_action(job_id: str, fn_name: str, action: str) -> Dict[str, Any]:
     try:
-        from cron.jobs import pause_job  # type: ignore
-        pause_job(job_id)
-        return {"ok": True, "id": job_id, "action": "paused"}
+        import cron.jobs as jobs  # type: ignore
+
+        fn = getattr(jobs, fn_name)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+    try:
+        job = fn(job_id)
+    except ValueError as exc:  # e.g. trigger on a terminal job
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        _log.exception("cron %s failed", action)
+        raise HTTPException(status_code=500, detail=str(exc))
+    if not job:
+        raise HTTPException(status_code=404, detail="job not found")
+    return {"ok": True, "id": job_id, "action": action}
+
+
+@router.post("/cron/{job_id}/pause")
+async def cron_pause(job_id: str):
+    return _cron_action(job_id, "pause_job", "paused")
 
 
 @router.post("/cron/{job_id}/resume")
 async def cron_resume(job_id: str):
-    try:
-        from cron.jobs import resume_job  # type: ignore
-        resume_job(job_id)
-        return {"ok": True, "id": job_id, "action": "resumed"}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+    return _cron_action(job_id, "resume_job", "resumed")
 
 
 @router.post("/cron/{job_id}/trigger")
 async def cron_trigger(job_id: str):
-    try:
-        from cron.jobs import trigger_job  # type: ignore
-        trigger_job(job_id)
-        return {"ok": True, "id": job_id, "action": "triggered"}
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+    return _cron_action(job_id, "trigger_job", "triggered")
 
 
 class _SendCommandBody(BaseModel):
-    text: str
-    chat_id: Optional[int] = None  # falls back to first allowed user
+    # Telegram's sendMessage limit is 4096 characters.
+    text: str = Field(..., min_length=1, max_length=4096)
+    chat_id: Optional[int] = None  # must be an allowlisted user; defaults to the first
 
 
 @router.post("/command")
@@ -1010,20 +924,16 @@ async def send_command(body: _SendCommandBody):
     if not token:
         raise HTTPException(status_code=500, detail="Bot token not configured")
 
-    chat_id = body.chat_id
-    if not chat_id:
-        allowed = _allowed_user_ids()
-        if not allowed:
-            raise HTTPException(
-                status_code=400,
-                detail="No chat_id and no TELEGRAM_OWNER_ID configured",
-            )
-        try:
-            chat_id = int(allowed[0])
-        except ValueError:
-            raise HTTPException(
-                status_code=400, detail="Allowed user is not a numeric id"
-            )
+    allowed = _allowed_user_ids()
+    if not allowed:
+        raise HTTPException(
+            status_code=400,
+            detail="No TELEGRAM_OWNER_ID / TELEGRAM_ALLOWED_USERS configured",
+        )
+    chat_id = body.chat_id or int(allowed[0])
+    # The bot only ever writes to allowlisted users' DMs, never an arbitrary chat.
+    if str(chat_id) not in allowed:
+        raise HTTPException(status_code=403, detail="chat_id is not an allowed user")
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = json.dumps({"chat_id": chat_id, "text": body.text}).encode("utf-8")
@@ -1037,13 +947,18 @@ async def send_command(body: _SendCommandBody):
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         if not data.get("ok"):
-            raise HTTPException(status_code=502, detail=f"Telegram API: {data}")
+            raise HTTPException(
+                status_code=502,
+                detail=f"Telegram API: {data.get('description', 'request rejected')}",
+            )
         return {"ok": True, "message_id": data["result"]["message_id"]}
     except HTTPException:
         raise
     except Exception as exc:
-        _log.exception("send_command failed")
-        raise HTTPException(status_code=502, detail=str(exc))
+        # Never echo the exception: urllib errors can carry the request URL,
+        # which contains the bot token.
+        _log.warning("telegram-app: sendMessage failed: %s", type(exc).__name__)
+        raise HTTPException(status_code=502, detail="Telegram API request failed")
 
 
 # ---------------------------------------------------------------------------

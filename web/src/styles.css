@@ -19,6 +19,7 @@
   --tg-button-text: #0d0d10;
   --tg-divider: rgba(255, 255, 255, 0.06);
   --tg-destructive: #f87171;
+  --tma-warn: #fbbf24;
 
   /* Spacing scale */
   --space-1: 4px;
@@ -37,7 +38,7 @@ html, body {
   font-size: 15px;
   line-height: 1.4;
   color: var(--tg-text);
-  background: var(--tg-bg);
+  background: var(--tg-bg-secondary);
   -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: contain;
 }
@@ -74,7 +75,7 @@ button {
   top: 0;
   z-index: 10;
   padding: calc(env(safe-area-inset-top) + var(--space-3)) var(--space-4) var(--space-3);
-  background: var(--tg-bg);
+  background: var(--tg-bg-secondary);
   border-bottom: 1px solid var(--tg-divider);
   display: flex;
   align-items: center;
@@ -119,7 +120,7 @@ button {
   left: 0;
   right: 0;
   display: flex;
-  background: var(--tg-bg-secondary);
+  background: var(--tg-section);
   border-top: 1px solid var(--tg-divider);
   padding: var(--space-2) 0 calc(env(safe-area-inset-bottom) + var(--space-2));
   z-index: 20;
@@ -164,14 +165,26 @@ button {
   background: var(--tg-section);
   border-radius: var(--radius);
   padding: var(--space-4);
-  margin-bottom: var(--space-3);
+  margin: 0 var(--space-4) var(--space-3);
 }
 
-.card.row {
+.card .row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+}
+
+.card.group {
+  padding: 0 var(--space-4);
+}
+
+.card.group .row {
+  padding: var(--space-3) 0;
+}
+
+.card.group .row + .row {
+  border-top: 1px solid var(--tg-divider);
 }
 
 .card .label {
@@ -219,7 +232,7 @@ button {
 
 .gauge .bar {
   height: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--tg-bg-secondary);
   border-radius: 2px;
   margin-top: var(--space-3);
   overflow: hidden;
@@ -231,7 +244,7 @@ button {
   transition: width 0.3s;
 }
 
-.gauge.warn .bar > div { background: #fbbf24; }
+.gauge.warn .bar > div { background: var(--tma-warn); }
 .gauge.crit .bar > div { background: var(--tg-destructive); }
 
 /* ---- Lists ----------------------------------------------------------- */
@@ -315,7 +328,7 @@ button {
 
 .compose textarea {
   width: 100%;
-  background: var(--tg-bg);
+  background: var(--tg-bg-secondary);
   color: var(--tg-text);
   border: 1px solid var(--tg-divider);
   border-radius: 8px;
@@ -394,13 +407,13 @@ button {
   letter-spacing: 0.05em;
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(94, 234, 212, 0.15);
+  background: color-mix(in srgb, var(--tg-accent) 15%, transparent);
   color: var(--tg-accent);
 }
 
 .cron-row .badge.paused {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
+  background: color-mix(in srgb, var(--tma-warn) 15%, transparent);
+  color: var(--tma-warn);
 }
 
 /* ---- Auth gate ------------------------------------------------------- */
@@ -452,7 +465,7 @@ button {
   position: sticky;
   top: 0;
   z-index: 5;
-  background: var(--tg-bg);
+  background: var(--tg-bg-secondary);
   border-bottom: 1px solid var(--tg-divider);
   padding: var(--space-2) var(--space-4);
   display: flex;
@@ -518,7 +531,7 @@ button {
 }
 
 .msg-user {
-  background: rgba(94, 234, 212, 0.08);
+  background: color-mix(in srgb, var(--tg-accent) 8%, transparent);
 }
 
 .msg-user .msg-role {
@@ -530,11 +543,11 @@ button {
 }
 
 .msg-tool {
-  background: rgba(251, 191, 36, 0.06);
+  background: color-mix(in srgb, var(--tma-warn) 8%, transparent);
 }
 
 .msg-tool .msg-role {
-  color: #fbbf24;
+  color: var(--tma-warn);
 }
 
 .msg-tool .msg-body {
@@ -565,6 +578,7 @@ body[data-scheme="light"] {
   --tg-button-text: #ffffff;
   --tg-divider: rgba(0, 0, 0, 0.08);
   --tg-destructive: #dc2626;
+  --tma-warn: #b45309;
 }
 
 /* ---- Section header w/ inline action ------------------------------- */
@@ -748,8 +762,8 @@ body[data-scheme="light"] {
 }
 
 .log-warning {
-  color: #fbbf24;
-  background: rgba(251, 191, 36, 0.06);
+  color: var(--tma-warn);
+  background: color-mix(in srgb, var(--tma-warn) 8%, transparent);
 }
 
 .log-error {
@@ -813,10 +827,10 @@ body[data-scheme="light"] {
 .usage-card.accent {
   background: linear-gradient(
     135deg,
-    rgba(94, 234, 212, 0.16),
-    rgba(94, 234, 212, 0.04)
+    color-mix(in srgb, var(--tg-accent) 16%, transparent),
+    color-mix(in srgb, var(--tg-accent) 4%, transparent)
   );
-  outline: 1px solid rgba(94, 234, 212, 0.18);
+  outline: 1px solid color-mix(in srgb, var(--tg-accent) 18%, transparent);
 }
 
 .usage-card .name {
@@ -918,7 +932,7 @@ body[data-scheme="light"] {
 
 .field input[type="text"],
 .field textarea {
-  background: var(--tg-bg);
+  background: var(--tg-bg-secondary);
   color: var(--tg-text);
   border: 1px solid var(--tg-divider);
   border-radius: 8px;
@@ -1127,4 +1141,29 @@ body[data-scheme="light"] {
   width: 14px;
   height: 14px;
   border-width: 2px;
+}
+
+/* ---- Demo mode banner ----------------------------------------------- */
+
+.app-header:has(.demo-banner) {
+  flex-wrap: wrap;
+  padding-top: 0;
+}
+
+.demo-banner {
+  flex: 0 0 calc(100% + 2 * var(--space-4));
+  margin: 0 calc(-1 * var(--space-4)) var(--space-1);
+  padding: calc(env(safe-area-inset-top) + 6px) var(--space-4) 6px;
+  background: #f59e0b;
+  color: #1f1300;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+
+
+.cron-row .badge.failed {
+  background: color-mix(in srgb, var(--tg-destructive) 15%, transparent);
+  color: var(--tg-destructive);
 }

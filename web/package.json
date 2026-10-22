@@ -1,11 +1,15 @@
 {
   "name": "hermes-telegram-miniapp-web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "typecheck": "tsc -b",
     "build": "tsc -b && vite build",
+    "build:demo": "tsc -b && vite build --mode demo",
+    "check:no-demo": "node scripts/check-no-demo.mjs",
+    "test": "vitest run",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -15,8 +19,9 @@
   "devDependencies": {
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^6.1.2",
     "typescript": "^5.6.3",
-    "vite": "^5.4.10"
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
   }
 }

@@ -103,13 +103,15 @@ export function StatusTab({
       </div>
 
       <SectionTitle>Hermes</SectionTitle>
-      <div className="card row">
-        <span className="label">Sessions</span>
-        <span className="value">{data.sessions_count}</span>
-      </div>
-      <div className="card row">
-        <span className="label">Cron jobs</span>
-        <span className="value">{data.cron_count}</span>
+      <div className="card group">
+        <div className="row">
+          <span className="label">Sessions</span>
+          <span className="value">{data.sessions_count}</span>
+        </div>
+        <div className="row">
+          <span className="label">Cron jobs</span>
+          <span className="value">{data.cron_count}</span>
+        </div>
       </div>
 
       {/* ---- Usage --------------------------------------------- */}

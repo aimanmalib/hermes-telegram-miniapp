@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 _HERE = Path(__file__).resolve().parent
 
@@ -422,57 +422,33 @@ async def cron_list():
 
 
 class _CronCreateBody(BaseModel):
-    prompt: Optional[str] = None
-    schedule: str
-    name: Optional[str] = None
+    # Agent jobs only. Script-only jobs (``no_agent`` / ``script``) and
+    # ``workdir`` are deliberately not accepted from the phone: they run
+    # arbitrary commands without the agent in the loop, and the Mini App UI
+    # never uses them. Unknown fields are rejected rather than ignored.
+    model_config = ConfigDict(extra="forbid")
+
+    prompt: str = Field(..., min_length=1, max_length=20_000)
+    schedule: str = Field(..., min_length=1, max_length=200)
+    name: Optional[str] = Field(None, max_length=200)
     deliver: Optional[str] = None  # "origin" | "local" | "telegram" | ...
     repeat: Optional[int] = None
     skills: Optional[List[str]] = None
     enabled_toolsets: Optional[List[str]] = None
-    workdir: Optional[str] = None
     model: Optional[str] = None
     provider: Optional[str] = None
-    no_agent: bool = False
-    script: Optional[str] = None
 
 
 @router.post("/cron")
 async def cron_create(body: _CronCreateBody):
-    """Create a new cron job. Same kwargs as ``cron.jobs.create_job``."""
+    """Create an agent cron job via ``cron.jobs.create_job``."""
     try:
         from cron.jobs import create_job  # type: ignore
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
-    if not body.schedule:
-        raise HTTPException(status_code=400, detail="schedule is required")
-    if body.no_agent:
-        if not body.script:
-            raise HTTPException(
-                status_code=400,
-                detail="script is required when no_agent=True",
-            )
-    else:
-        if not body.prompt:
-            raise HTTPException(
-                status_code=400, detail="prompt is required for agent jobs"
-            )
-
     try:
-        job = create_job(
-            prompt=body.prompt,
-            schedule=body.schedule,
-            name=body.name,
-            deliver=body.deliver,
-            repeat=body.repeat,
-            skills=body.skills,
-            enabled_toolsets=body.enabled_toolsets,
-            workdir=body.workdir,
-            model=body.model,
-            provider=body.provider,
-            no_agent=body.no_agent,
-            script=body.script,
-        )
+        job = create_job(**body.model_dump(exclude_none=True))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
@@ -482,6 +458,8 @@ async def cron_create(body: _CronCreateBody):
 
 
 class _CronUpdateBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: Optional[str] = None
     schedule: Optional[str] = None
     prompt: Optional[str] = None

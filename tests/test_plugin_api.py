@@ -159,3 +159,20 @@ def test_logs_rejects_unknown_file(plugin):
 
 def test_skill_path_traversal_refused(plugin):
     assert plugin.client.get(f"{PREFIX}/skills/../../.env").status_code == 404
+
+
+def test_cron_create_refuses_script_jobs(plugin, monkeypatch):
+    created = []
+    jobs = types.ModuleType("cron.jobs")
+    jobs.create_job = lambda **kw: created.append(kw) or {"id": "new", **kw}
+    cron = types.ModuleType("cron")
+    cron.jobs = jobs
+    monkeypatch.setitem(sys.modules, "cron", cron)
+    monkeypatch.setitem(sys.modules, "cron.jobs", jobs)
+    bad = {"schedule": "1h", "prompt": "x", "no_agent": True, "script": "rm -rf ~"}
+    assert plugin.client.post(f"{PREFIX}/cron", json=bad).status_code == 422
+    assert plugin.client.post(f"{PREFIX}/cron", json={"schedule": "1h", "prompt": "x", "workdir": "/"}).status_code == 422
+    assert plugin.client.post(f"{PREFIX}/cron", json={"schedule": "1h"}).status_code == 422
+    ok = plugin.client.post(f"{PREFIX}/cron", json={"schedule": "1h", "prompt": "hi", "deliver": "telegram"})
+    assert ok.status_code == 200
+    assert created == [{"schedule": "1h", "prompt": "hi", "deliver": "telegram"}]

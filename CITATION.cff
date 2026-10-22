@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use hermes-telegram-miniapp, please cite it as below."
+title: "hermes-telegram-miniapp: a Telegram Mini App control panel for Hermes Agent"
+type: software
+authors:
+  - given-names: Muhammad
+    family-names: Aiman
+version: 0.2.0
+license: MIT
+repository-code: "https://github.com/aimanmalib/hermes-telegram-miniapp"
+abstract: >-
+  A Hermes Agent dashboard plugin and React Mini App that shows live status, sessions, cron jobs and logs inside
+  Telegram, with verified Telegram login (HMAC-SHA256 with Ed25519 fallback), a freshness window and an owner-only
+  allowlist.

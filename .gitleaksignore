@@ -1,0 +1,2 @@
+# Known-answer test vector derived from a made-up bot token in tests/conftest.py, not a secret.
+f4933038a7cdae8420eedcee1ead4532126cdf79:tests/test_tg_auth.py:generic-api-key:21

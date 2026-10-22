@@ -30,7 +30,7 @@ export function formatUptime(sec: number): string {
   const parts: string[] = [];
   if (d) parts.push(`${d}d`);
   if (h) parts.push(`${h}h`);
-  if (!d) parts.push(`${m}m`);
+  if (!d && (m || h)) parts.push(`${m}m`);
   return parts.join(" ") || "<1m";
 }
 
@@ -50,4 +50,64 @@ export function truncate(s: string | null | undefined, n: number): string {
   if (!s) return "";
   if (s.length <= n) return s;
   return s.slice(0, n - 1) + "…";
+}
+
+/**
+ * Normalise a timestamp to unix seconds. Hermes cron stores ISO-8601 strings
+ * (``next_run_at`` / ``last_run_at``); sessions use unix seconds.
+ * Returns null for anything unparseable.
+ */
+export function toEpochSeconds(v: unknown): number | null {
+  if (typeof v === "number") return Number.isFinite(v) && v > 0 ? v : null;
+  if (typeof v === "string" && v.trim()) {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n > 0 ? n : null;
+    const ms = Date.parse(v);
+    return Number.isNaN(ms) ? null : ms / 1000;
+  }
+  return null;
+}
+
+/** Relative time, but also says "in 5m" for future instants (cron next run). */
+export function formatWhen(ts: number | null | undefined): string {
+  if (!ts) return "—";
+  const diff = ts * 1000 - Date.now();
+  if (diff <= 0) return formatRelative(ts);
+  const min = Math.round(diff / 60_000);
+  if (min < 1) return "in <1m";
+  if (min < 60) return `in ${min}m`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `in ${hr}h`;
+  return `in ${Math.round(hr / 24)}d`;
+}
+
+/** Human-readable cron schedule; current Hermes stores ``schedule`` as an object. */
+export function scheduleLabel(job: {
+  schedule?: unknown;
+  schedule_display?: unknown;
+}): string {
+  if (typeof job.schedule_display === "string" && job.schedule_display)
+    return job.schedule_display;
+  const s = job.schedule;
+  if (typeof s === "string") return s;
+  if (s && typeof s === "object") {
+    const o = s as Record<string, unknown>;
+    for (const k of ["display", "expr", "value", "kind"]) {
+      if (typeof o[k] === "string" && o[k]) return o[k] as string;
+    }
+  }
+  return "—";
+}
+
+/** The schedule string to pre-fill when editing (an expression Hermes can parse). */
+export function scheduleInput(job: { schedule?: unknown; schedule_display?: unknown }): string {
+  const s = job.schedule;
+  if (typeof s === "string") return s;
+  if (s && typeof s === "object") {
+    const o = s as Record<string, unknown>;
+    if (typeof o.expr === "string") return o.expr;
+    if (o.kind === "once" && typeof o.run_at === "string") return o.run_at;
+    if (typeof o.display === "string") return o.display;
+  }
+  return typeof job.schedule_display === "string" ? job.schedule_display : "";
 }

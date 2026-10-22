@@ -8,6 +8,7 @@ import { CronTab } from "./tabs/CronTab";
 import { LogsTab } from "./tabs/LogsTab";
 import { KnowledgeTab } from "./tabs/KnowledgeTab";
 import { SendTab } from "./tabs/SendTab";
+import { DEMO_ENABLED } from "./demo-gate";
 
 type Tab = "status" | "sessions" | "cron" | "logs" | "knowledge" | "send";
 
@@ -17,28 +18,72 @@ interface View {
   sessionTitle?: string;
 }
 
+/**
+ * Telegram-like palettes used in demo mode (outside Telegram there are no
+ * themeParams). Values follow Telegram's default day / night themes.
+ */
+const DEMO_THEMES: Record<"light" | "dark", TelegramThemeParams> = {
+  light: {
+    bg_color: "#ffffff",
+    secondary_bg_color: "#f0f2f5",
+    section_bg_color: "#ffffff",
+    text_color: "#000000",
+    hint_color: "#707579",
+    link_color: "#3390ec",
+    accent_text_color: "#3390ec",
+    button_color: "#3390ec",
+    button_text_color: "#ffffff",
+    destructive_text_color: "#e53935",
+  },
+  dark: {
+    bg_color: "#17212b",
+    secondary_bg_color: "#0e1621",
+    section_bg_color: "#1f2b38",
+    text_color: "#f5f5f5",
+    hint_color: "#708499",
+    link_color: "#6ab3f3",
+    accent_text_color: "#6ab3f3",
+    button_color: "#5288c1",
+    button_text_color: "#ffffff",
+    destructive_text_color: "#ec3942",
+  },
+};
+
+function demoScheme(): "light" | "dark" {
+  const q = new URLSearchParams(window.location.search).get("theme");
+  if (q === "light" || q === "dark") return q;
+  return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
+const THEME_VARS: [keyof TelegramThemeParams, string][] = [
+  ["bg_color", "--tg-bg"],
+  ["secondary_bg_color", "--tg-bg-secondary"],
+  ["section_bg_color", "--tg-section"],
+  ["text_color", "--tg-text"],
+  ["hint_color", "--tg-hint"],
+  ["link_color", "--tg-link"],
+  ["accent_text_color", "--tg-accent"],
+  ["button_color", "--tg-button"],
+  ["button_text_color", "--tg-button-text"],
+  ["destructive_text_color", "--tg-destructive"],
+];
+
 function applyTelegramTheme(
   params: TelegramThemeParams,
   scheme: "light" | "dark",
 ) {
-  const root = document.documentElement;
-  if (params.bg_color) root.style.setProperty("--tg-bg", params.bg_color);
-  if (params.secondary_bg_color)
-    root.style.setProperty("--tg-bg-secondary", params.secondary_bg_color);
-  if (params.section_bg_color)
-    root.style.setProperty("--tg-section", params.section_bg_color);
-  if (params.text_color) root.style.setProperty("--tg-text", params.text_color);
-  if (params.hint_color) root.style.setProperty("--tg-hint", params.hint_color);
-  if (params.link_color) root.style.setProperty("--tg-link", params.link_color);
-  if (params.accent_text_color)
-    root.style.setProperty("--tg-accent", params.accent_text_color);
-  if (params.button_color)
-    root.style.setProperty("--tg-button", params.button_color);
-  if (params.button_text_color)
-    root.style.setProperty("--tg-button-text", params.button_text_color);
-  if (params.destructive_text_color)
-    root.style.setProperty("--tg-destructive", params.destructive_text_color);
   document.body.dataset.scheme = scheme;
+  // Set on <body> as well as <html>: body[data-scheme="light"] declares its own
+  // defaults, which would otherwise override Telegram's colours.
+  for (const [key, cssVar] of THEME_VARS) {
+    const value = params[key];
+    if (!value) continue;
+    document.documentElement.style.setProperty(cssVar, value);
+    document.body.style.setProperty(cssVar, value);
+  }
+  const meta = document.querySelector('meta[name="theme-color"]');
+  const page = params.secondary_bg_color ?? params.bg_color;
+  if (meta && page) meta.setAttribute("content", page);
 }
 
 /**
@@ -63,7 +108,10 @@ export function App() {
   // ---- Mount: init Telegram + login -------------------------------------
   useEffect(() => {
     const tg = getTelegramWebApp();
-    if (tg) {
+    if (DEMO_ENABLED) {
+      const scheme = demoScheme();
+      applyTelegramTheme(DEMO_THEMES[scheme], scheme);
+    } else if (tg) {
       try {
         tg.ready();
         tg.expand();
@@ -128,6 +176,11 @@ export function App() {
   return (
     <div className="app">
       <header className="app-header">
+        {DEMO_ENABLED && (
+          <div className="demo-banner" role="status">
+            Demo data · not connected to Hermes
+          </div>
+        )}
         <h1>⚡ Hermes</h1>
         <div className="user-chip">
           <span className="dot" />

@@ -10,11 +10,16 @@
  *   4. If a call returns 401 (process restarted, token rotated), we
  *      re-login transparently and retry the original call once.
  *
- * For local desktop dev (no Telegram), set ``localStorage.devSessionToken``
- * to a known token; the client picks it up automatically.
+ * For local development with the Vite dev server (no Telegram), set
+ * ``localStorage.devSessionToken`` to the dashboard token. Production builds
+ * ignore it.
+ *
+ * Demo builds (``npm run build:demo`` / ``?demo=1`` on the dev server) answer
+ * every call from ./demo.ts and never touch the network.
  */
 
 import { getInitData } from "./telegram";
+import { DEMO_ENABLED, demoRequest, DEMO_USER } from "./demo-gate";
 
 const API_BASE = "/api/plugins/telegram-app";
 
@@ -34,10 +39,10 @@ export interface AuthResponse {
   session_token?: string;
   user?: AuthUser;
   reason?: string;
-  expires_at?: number;
 }
 
 function devToken(): string | null {
+  if (!import.meta.env.DEV) return null;
   try {
     return localStorage.getItem("devSessionToken");
   } catch {
@@ -54,6 +59,10 @@ export function getLastUser(): AuthUser | null {
 }
 
 export async function loginWithInitData(initData?: string): Promise<AuthResponse> {
+  if (DEMO_ENABLED) {
+    lastUser = DEMO_USER;
+    return { ok: true, user: DEMO_USER, reason: "demo" };
+  }
   const data = initData ?? getInitData();
   if (!data) {
     // Dev shortcut — some browsers can't fake initData. If devToken is set
@@ -96,6 +105,7 @@ export async function api<T = unknown>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
+  if (DEMO_ENABLED) return (await demoRequest(path, init)) as T;
   let res = await rawFetch(path, init);
   if (res.status === 401) {
     // Token expired — try to re-login from initData and retry once.
@@ -154,7 +164,9 @@ export interface SessionsResp {
 }
 
 export const getSessions = (limit = 30, source?: string) =>
-  api<SessionsResp>(`/sessions?limit=${limit}${source ? `&source=${source}` : ""}`);
+  api<SessionsResp>(
+    `/sessions?limit=${limit}${source ? `&source=${encodeURIComponent(source)}` : ""}`,
+  );
 
 export interface SessionMessage {
   role: string;
@@ -165,41 +177,55 @@ export interface SessionMessage {
 
 export const getSessionMessages = (id: string, limit = 100) =>
   api<{ session_id: string; messages: SessionMessage[] }>(
-    `/sessions/${id}/messages?limit=${limit}`,
+    `/sessions/${encodeURIComponent(id)}/messages?limit=${limit}`,
   );
 
+export interface CronSchedule {
+  kind?: string;
+  expr?: string;
+  display?: string;
+  run_at?: string;
+  minutes?: number;
+  [k: string]: unknown;
+}
+
+/** Shape of ``cron.jobs.list_jobs()`` in current Hermes (older builds used numeric next_run/last_run). */
 export interface CronJob {
   id: string;
-  name?: string;
-  schedule?: string;
-  prompt?: string;
+  name?: string | null;
+  schedule?: CronSchedule | string;
+  schedule_display?: string;
+  prompt?: string | null;
+  deliver?: string | null;
   enabled?: boolean;
+  state?: string;
+  next_run_at?: string | null;
+  last_run_at?: string | null;
+  last_status?: string | null;
+  last_error?: string | null;
   next_run?: number;
   last_run?: number;
-  last_status?: string;
   [k: string]: unknown;
 }
 
 export const getCron = () => api<{ jobs: CronJob[] }>("/cron");
 
 export const cronAction = (id: string, action: "pause" | "resume" | "trigger") =>
-  api<{ ok: boolean; id: string; action: string }>(`/cron/${id}/${action}`, {
+  api<{ ok: boolean; id: string; action: string }>(`/cron/${encodeURIComponent(id)}/${action}`, {
     method: "POST",
   });
 
+/** Agent jobs only; the plugin rejects script-only jobs and workdir. */
 export interface CronCreatePayload {
-  prompt?: string;
+  prompt: string;
   schedule: string;
   name?: string;
   deliver?: string;
   repeat?: number;
   skills?: string[];
   enabled_toolsets?: string[];
-  workdir?: string;
   model?: string;
   provider?: string;
-  no_agent?: boolean;
-  script?: string;
 }
 
 export const cronCreate = (payload: CronCreatePayload) =>
@@ -219,13 +245,13 @@ export interface CronUpdatePayload {
 }
 
 export const cronUpdate = (id: string, payload: CronUpdatePayload) =>
-  api<{ ok: boolean; job: CronJob }>(`/cron/${id}`, {
+  api<{ ok: boolean; job: CronJob }>(`/cron/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
 
 export const cronDelete = (id: string) =>
-  api<{ ok: boolean; id: string; action: string }>(`/cron/${id}`, {
+  api<{ ok: boolean; id: string; action: string }>(`/cron/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
 

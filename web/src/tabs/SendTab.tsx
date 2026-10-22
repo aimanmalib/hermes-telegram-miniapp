@@ -13,7 +13,7 @@ const DEFAULT_PRESETS: string[] = [
   "What did I work on yesterday?",
   "Tail the last 30 lines of errors.log and explain anything red",
   "Disk + memory snapshot",
-  "Search past sessions for the last TikTok scraper change",
+  "Which cron jobs failed this week, and why?",
 ];
 
 interface HistoryEntry {
@@ -68,7 +68,7 @@ export function SendTab() {
     setFeedback(null);
     try {
       await sendCommand(value);
-      setFeedback("Sent. Check your chat with the bot.");
+      setFeedback("Posted to your chat with the bot.");
       tgHaptic("success");
       setText("");
       const newEntry: HistoryEntry = { text: value, ts: Date.now() / 1000 };
@@ -121,14 +121,15 @@ export function SendTab() {
 
   return (
     <>
-      <SectionTitle>Send to Hermes</SectionTitle>
+      <SectionTitle>Post to bot chat</SectionTitle>
       <div className="compose">
         <p
           className="label"
           style={{ margin: "0 0 8px", color: "var(--tg-hint)" }}
         >
-          Type a message — it'll be sent to your bot chat as if you'd typed it
-          there. Hermes will reply in the chat.
+          The bot posts this text into your chat with it. Telegram does not
+          deliver a bot&apos;s own messages back to the bot, so Hermes will not act
+          on it; use it to stage a prompt you then copy into the chat.
         </p>
         <textarea
           ref={textareaRef}

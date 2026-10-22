@@ -4,8 +4,10 @@
 # What it does:
 #   1. Builds the Vite frontend → ./dist/
 #   2. Symlinks ./plugin/ to ~/.hermes/plugins/telegram-app
-#   3. Restarts the Hermes dashboard
-#   4. Verifies the plugin shows up in /api/dashboard/plugins
+#   3. Warns if telegram-app is not in plugins.enabled (Hermes will not
+#      import a user plugin's backend until it is)
+#   4. Restarts the Hermes dashboard
+#   5. Verifies the plugin shows up in /api/dashboard/plugins
 #
 # Override paths via env vars:
 #   HERMES_HOME           default ~/.hermes
@@ -34,9 +36,9 @@ die()  { echo -e "${RED}[install]${NC} $*" >&2; exit 1; }
 
 # ---- Build frontend --------------------------------------------------------
 if [[ "${SKIP_BUILD:-0}" != "1" ]]; then
-    command -v npm >/dev/null || die "npm not found — install Node.js 18+"
+    command -v npm >/dev/null || die "npm not found — install Node.js 22 (or 20.19+)"
     log "Building frontend (web/) → dist/"
-    (cd "$HERE/web" && npm install --silent --no-audit --no-fund && npm run build)
+    (cd "$HERE/web" && npm ci --silent --no-audit --no-fund && npm run build)
     [[ -d "$HERE/dist" ]] || die "Build did not produce dist/"
     log "Frontend built — $(du -sh "$HERE/dist" | cut -f1)"
 else
@@ -70,6 +72,20 @@ if [[ -L "$LINK" ]] || [[ -d "$LINK" ]]; then
 fi
 ln -sfn "$HERE/plugin" "$LINK"
 log "Symlinked $LINK → $HERE/plugin"
+
+# ---- Consent gate ------------------------------------------------------------
+# Hermes only imports a user plugin's plugin_api.py when its name is listed in
+# plugins.enabled in config.yaml (GHSA-mcfc-hp25-cjv7). We do not edit the
+# config for you; this is a best-effort check.
+CONFIG="$HERMES_HOME/config.yaml"
+if [[ -f "$CONFIG" ]] && grep -Eq '^[[:space:]]*-[[:space:]]*["'\'']?telegram-app["'\'']?[[:space:]]*$|enabled:.*telegram-app' "$CONFIG"; then
+    log "telegram-app appears in $CONFIG"
+else
+    warn "Add telegram-app to plugins.enabled in $CONFIG, e.g.:"
+    warn "  plugins:"
+    warn "    enabled: [telegram-app]"
+    warn "Without it the dashboard will not mount /api/plugins/telegram-app/*."
+fi
 
 # ---- Restart dashboard ----------------------------------------------------
 if systemctl is-active hermes-dashboard >/dev/null 2>&1; then

@@ -8,7 +8,7 @@ import {
   cronUpdate,
   getCron,
 } from "../api";
-import { formatRelative, truncate } from "../utils";
+import { formatRelative, formatWhen, scheduleInput, scheduleLabel, toEpochSeconds, truncate } from "../utils";
 import { ErrorBox, Loading, PullToRefresh, SectionTitle, tgHaptic, tgHapticImpact } from "../components";
 
 const SCHEDULE_PRESETS: { label: string; value: string }[] = [
@@ -103,9 +103,9 @@ export function CronTab() {
     setEditId(job.id);
     setForm({
       name: job.name ?? "",
-      schedule: String(job.schedule ?? ""),
+      schedule: scheduleInput(job),
       prompt: String(job.prompt ?? ""),
-      deliver: String((job as { deliver?: string }).deliver ?? "telegram"),
+      deliver: String(job.deliver ?? "telegram"),
     });
     setFormError(null);
     setShowForm(true);
@@ -196,6 +196,9 @@ export function CronTab() {
       {jobs.map((j) => {
         const enabled = j.enabled !== false;
         const acting = busy?.startsWith(j.id + "/");
+        const nextRun = toEpochSeconds(j.next_run_at ?? j.next_run);
+        const lastRun = toEpochSeconds(j.last_run_at ?? j.last_run);
+        const failed = /fail|error/i.test(String(j.last_status ?? ""));
         return (
           <div key={j.id} className="cron-row">
             <div
@@ -206,14 +209,16 @@ export function CronTab() {
               }}
             >
               <span className="name">{j.name ?? j.id}</span>
-              <span className={enabled ? "badge" : "badge paused"}>
-                {enabled ? "active" : "paused"}
+              <span
+                className={!enabled ? "badge paused" : failed ? "badge failed" : "badge"}
+              >
+                {!enabled ? "paused" : failed ? "last run failed" : "active"}
               </span>
             </div>
             <div className="meta">
-              <span>{j.schedule ?? "—"}</span>
-              {j.next_run && <span>next {formatRelative(j.next_run)}</span>}
-              {j.last_run && <span>last {formatRelative(j.last_run)}</span>}
+              <span>{scheduleLabel(j)}</span>
+              {enabled && nextRun && <span>next {formatWhen(nextRun)}</span>}
+              {lastRun && <span>last {formatRelative(lastRun)}</span>}
             </div>
             {j.prompt && (
               <div className="item-preview" style={{ marginTop: 4 }}>

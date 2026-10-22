@@ -18,7 +18,7 @@ ALLOWED = [str(OWNER_ID)]
 # Known-answer vectors computed independently with openssl:
 #   secret = HMAC-SHA256(key="WebAppData", msg=BOT_TOKEN)
 #   hash   = HMAC-SHA256(key=secret, msg=data_check_string)
-KAT_SECRET = "998cdc0cc799d2fe4fd5f8c0d5f545463538b8f23fe79e6e8521b533ed05f0bc"
+KAT_SECRET = "998cdc0cc799d2fe4fd5f8c0d5f545463538b8f23fe79e6e8521b533ed05f0bc"  # gitleaks:allow (derived from the fake BOT_TOKEN)
 KAT_FIELDS = {
     "auth_date": "1760000000",
     "query_id": "AAHdF6IQAAAAAN0XohDhrOrc",

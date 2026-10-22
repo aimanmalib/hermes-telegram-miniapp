@@ -1,0 +1,26 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.env
+.env.local
+.vite/
+.cache/
+__pycache__/
+*.pyc
+*.pyo
+.mypy_cache/
+.pytest_cache/
+*.swp
+*.swo
+.idea/
+.vscode/
+tsbuildinfo
+tsconfig.tsbuildinfo
+
+# runtime state (legacy location — pre-fix the alerts module wrote here when
+# the plugin dir was symlinked from a checkout)
+plugin/alerts.json
+plugin/alerts_state.json
+plugin/__pycache__/
+plugin/dashboard/__pycache__/

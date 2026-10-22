@@ -3,15 +3,15 @@
 Three watch types:
 
 1. **Cron failures** — polls ``cron.jobs.list_jobs()`` and DMs once per
-   newly-failed run (dedups on the run_id-equivalent: ``last_run`` + job_id).
+   newly-failed run (dedups on job id + ``last_run_at``).
 2. **Error log** — tails ``~/.hermes/logs/errors.log`` and DMs each new
    ERROR/CRITICAL line, throttled to one alert per N seconds.
 3. **Daily spend threshold** — sums ``estimated_cost_usd`` across today's
    sessions; once it crosses the configured threshold, fires once per
    local-day (resets at 00:00).
 
-State lives in ``~/.hermes/state/telegram-app/alerts_state.json``.
-Settings live in ``~/.hermes/state/telegram-app/alerts.json`` and are
+State lives in ``<hermes home>/state/telegram-app/alerts_state.json``.
+Settings live in ``<hermes home>/state/telegram-app/alerts.json`` and are
 hot-readable so the SPA can update them without restarting the daemon.
 
 The daemon is started lazily at plugin import time via ``ensure_started()``;
@@ -33,10 +33,76 @@ from typing import Any, Dict, List, Optional
 
 _log = logging.getLogger("hermes.plugin.telegram-app.alerts")
 
-_PLUGIN_DIR = Path.home() / ".hermes" / "state" / "telegram-app"
-_PLUGIN_DIR.mkdir(parents=True, exist_ok=True)
-_SETTINGS_PATH = _PLUGIN_DIR / "alerts.json"
-_STATE_PATH = _PLUGIN_DIR / "alerts_state.json"
+
+
+def _hermes_home() -> Path:
+    try:
+        from hermes_constants import get_hermes_home  # type: ignore
+
+        return Path(get_hermes_home())
+    except Exception:
+        env = os.environ.get("HERMES_HOME", "").strip()
+        return Path(env).expanduser() if env else Path.home() / ".hermes"
+
+
+def _plugin_dir() -> Path:
+    return _hermes_home() / "state" / "telegram-app"
+
+
+def _settings_path() -> Path:
+    return _plugin_dir() / "alerts.json"
+
+
+def _state_path() -> Path:
+    return _plugin_dir() / "alerts_state.json"
+
+
+def _errors_log_path() -> Path:
+    return _hermes_home() / "logs" / "errors.log"
+
+
+# ``last_status`` values Hermes cron records for a failed run ("ok" = success).
+_FAILED_STATUSES = frozenset(
+    {"error", "failed", "failure", "delivery_failed", "blocked_config", "timeout"}
+)
+
+
+def is_failed_status(status: Any) -> bool:
+    s = str(status or "").strip().lower()
+    return s in _FAILED_STATUSES or "fail" in s or "error" in s
+
+
+def run_timestamp(job: Dict[str, Any]) -> float:
+    """Unix time of the job's last run.
+
+    Current Hermes stores ``last_run_at`` as an ISO-8601 string; older builds
+    used a numeric ``last_run``. Returns 0.0 when unknown.
+    """
+    raw = job.get("last_run_at") or job.get("last_run") or 0
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool):
+        return float(raw)
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        pass
+    try:
+        parsed = _dt.datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return 0.0
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=_dt.timezone.utc)
+    return parsed.timestamp()
+
+
+def schedule_label(job: Dict[str, Any]) -> str:
+    """Human-readable schedule (``schedule`` is a dict in current Hermes)."""
+    display = job.get("schedule_display")
+    if display:
+        return str(display)
+    sched = job.get("schedule")
+    if isinstance(sched, dict):
+        return str(sched.get("display") or sched.get("expr") or sched.get("kind") or "")
+    return str(sched or "")
 
 DEFAULT_SETTINGS: Dict[str, Any] = {
     "cron_failures": True,
@@ -73,6 +139,7 @@ def _read_json(path: Path, fallback: Dict[str, Any]) -> Dict[str, Any]:
 def _write_json(path: Path, data: Dict[str, Any]) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     try:
+        path.parent.mkdir(parents=True, exist_ok=True)
         tmp.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
         tmp.replace(path)
     except Exception as exc:
@@ -80,21 +147,39 @@ def _write_json(path: Path, data: Dict[str, Any]) -> None:
 
 
 def get_settings() -> Dict[str, Any]:
-    return _read_json(_SETTINGS_PATH, DEFAULT_SETTINGS)
+    return _read_json(_settings_path(), DEFAULT_SETTINGS)
+
+
+_SETTING_BOUNDS = {
+    "cost_daily_usd": (0.0, 1_000_000.0),
+    "error_throttle_sec": (0, 86_400),
+    "poll_interval_sec": (15, 3_600),
+}
 
 
 def update_settings(patch: Dict[str, Any]) -> Dict[str, Any]:
+    """Apply a partial update. Unknown keys are ignored; numbers are clamped."""
     cur = get_settings()
     for k, v in patch.items():
-        if k in DEFAULT_SETTINGS:
-            cur[k] = v
-    _write_json(_SETTINGS_PATH, cur)
+        if k not in DEFAULT_SETTINGS or v is None:
+            continue
+        default = DEFAULT_SETTINGS[k]
+        if isinstance(default, bool):
+            cur[k] = bool(v)
+            continue
+        try:
+            num = type(default)(v)
+        except (TypeError, ValueError):
+            continue
+        lo, hi = _SETTING_BOUNDS.get(k, (num, num))
+        cur[k] = min(max(num, type(default)(lo)), type(default)(hi))
+    _write_json(_settings_path(), cur)
     return cur
 
 
 def _state() -> Dict[str, Any]:
     return _read_json(
-        _STATE_PATH,
+        _state_path(),
         {
             "cron_last_alert_per_job": {},   # job_id → last_run timestamp alerted
             "errors_last_size": 0,            # bytes already scanned
@@ -112,7 +197,7 @@ def _state() -> Dict[str, Any]:
 
 
 def _save_state(state: Dict[str, Any]) -> None:
-    _write_json(_STATE_PATH, state)
+    _write_json(_state_path(), state)
 
 
 # ---------------------------------------------------------------------------
@@ -122,7 +207,7 @@ def _bot_token_and_chat() -> Optional[tuple[str, int]]:
     """Pull bot token + first allowed chat id from .env / process env."""
     # Read from .env directly so we don't depend on plugin_api's helpers
     # (which import-cycle if alerts.py is imported during plugin init).
-    env_path = Path.home() / ".hermes" / ".env"
+    env_path = _hermes_home() / ".env"
     env: Dict[str, str] = dict(os.environ)
     if env_path.exists():
         for line in env_path.read_text(encoding="utf-8", errors="replace").splitlines():
@@ -136,7 +221,9 @@ def _bot_token_and_chat() -> Optional[tuple[str, int]]:
     token = env.get("TELEGRAM_BOT_TOKEN", "").strip()
     if not token:
         return None
-    raw = env.get("TELEGRAM_OWNER_ID") or env.get("TELEGRAM_ALLOWED_USERS") or ""
+    raw = ",".join(
+        x for x in (env.get("TELEGRAM_OWNER_ID"), env.get("TELEGRAM_ALLOWED_USERS")) if x
+    )
     for piece in raw.split(","):
         piece = piece.strip()
         try:
@@ -163,11 +250,12 @@ def _send_telegram(text: str) -> bool:
         with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         if not data.get("ok"):
-            _log.warning("alerts: Telegram API rejected: %s", data)
+            _log.warning("alerts: Telegram API rejected: %s", data.get("description"))
             return False
         return True
     except Exception as exc:
-        _log.warning("alerts: send failed: %s", exc)
+        # Type name only: urllib errors may include the URL, which holds the token.
+        _log.warning("alerts: send failed: %s", type(exc).__name__)
         return False
 
 
@@ -186,19 +274,17 @@ def _check_cron_failures(state: Dict[str, Any]) -> None:
         _log.debug("alerts: list_jobs failed: %s", exc)
         return
     for j in jobs:
-        last_status = str(j.get("last_status") or "").lower()
-        last_run = j.get("last_run") or 0
-        try:
-            last_run = float(last_run)
-        except (TypeError, ValueError):
-            last_run = 0.0
-        if last_status in ("error", "failed", "failure") and last_run > 0:
-            previous = float(seen.get(j["id"], 0) or 0)
+        job_id = j.get("id")
+        if not job_id:
+            continue
+        last_run = run_timestamp(j)
+        if is_failed_status(j.get("last_status")) and last_run > 0:
+            previous = float(seen.get(job_id, 0) or 0)
             if last_run > previous:
                 # New failure → fire and remember
-                seen[j["id"]] = last_run
-                name = j.get("name") or j["id"]
-                schedule = j.get("schedule") or ""
+                seen[job_id] = last_run
+                name = j.get("name") or job_id
+                schedule = schedule_label(j)
                 err = (j.get("last_error") or "").strip()[:300]
                 msg = (
                     f"🚨 Cron failed: {name}\n"
@@ -208,13 +294,13 @@ def _check_cron_failures(state: Dict[str, Any]) -> None:
                     msg += f"error: {err}\n"
                 msg += "Open the Hermes mini app → Cron → tap the row to edit."
                 if _send_telegram(msg):
-                    _log.info("alerts: notified cron failure for %s", j["id"])
+                    _log.info("alerts: notified cron failure for %s", job_id)
                     state["last_alert_ts"] = time.time()
                     state["last_alert_kind"] = "cron"
 
 
 def _check_error_log(state: Dict[str, Any], settings: Dict[str, Any]) -> None:
-    log_path = Path.home() / ".hermes" / "logs" / "errors.log"
+    log_path = _errors_log_path()
     if not log_path.exists():
         return
     try:
@@ -332,7 +418,7 @@ def _watcher_loop() -> None:
     # turned on. So at first start, snapshot current state and persist.
     state = _state()
     if state.get("errors_last_size", 0) == 0:
-        log_path = Path.home() / ".hermes" / "logs" / "errors.log"
+        log_path = _errors_log_path()
         try:
             state["errors_last_size"] = (
                 log_path.stat().st_size if log_path.exists() else 0
@@ -344,12 +430,8 @@ def _watcher_loop() -> None:
         try:
             from cron.jobs import list_jobs  # type: ignore
             for j in list_jobs(include_disabled=True):
-                if str(j.get("last_status") or "").lower() in (
-                    "error", "failed", "failure"
-                ):
-                    state["cron_last_alert_per_job"][j["id"]] = float(
-                        j.get("last_run") or 0
-                    )
+                if j.get("id") and is_failed_status(j.get("last_status")):
+                    state["cron_last_alert_per_job"][j["id"]] = run_timestamp(j)
         except Exception:
             pass
     _save_state(state)
@@ -380,8 +462,8 @@ def ensure_started() -> None:
             return
         # Initialise settings file with defaults if missing so users see
         # the toggles populated correctly on first open.
-        if not _SETTINGS_PATH.exists():
-            _write_json(_SETTINGS_PATH, DEFAULT_SETTINGS)
+        if not _settings_path().exists():
+            _write_json(_settings_path(), DEFAULT_SETTINGS)
         t = threading.Thread(
             target=_watcher_loop, name="hermes-tma-alerts", daemon=True
         )
@@ -438,7 +520,7 @@ def get_status() -> Dict[str, Any]:
         "last_alert_kind": state.get("last_alert_kind") or None,
         "errors_emitted_today": int(errors_per_day.get(today, 0) or 0),
         "cron_failures_seen": len(state.get("cron_last_alert_per_job") or {}),
-        "state_path": str(_STATE_PATH),
+        "state_path": str(_state_path()),
         "has_bot_token": bool(creds and creds[0]),
         "has_owner_chat": bool(creds and creds[1]),
     }

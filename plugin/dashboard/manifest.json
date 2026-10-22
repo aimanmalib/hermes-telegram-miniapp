@@ -1,15 +1,15 @@
 {
   "name": "telegram-app",
   "label": "Telegram Mini App",
-  "description": "Mobile control panel for Hermes — sessions, cron, status, skills. Designed to be opened from Telegram bot menu button on phone, but accessible from desktop dashboard too.",
-  "icon": "Smartphone",
-  "version": "0.1.0",
+  "description": "Backend for the Hermes Telegram Mini App: verifies Telegram initData, exposes phone-sized status, sessions, cron, logs and alerts endpoints.",
+  "icon": "MessageSquare",
+  "version": "0.2.0",
   "tab": {
     "path": "/telegram-app",
     "position": "after:cron",
     "hidden": false
   },
   "slots": [],
-  "entry": "dist/index.js",
+  "entry": "dashboard-tab.js",
   "api": "plugin_api.py"
 }

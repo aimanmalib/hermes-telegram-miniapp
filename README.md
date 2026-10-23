@@ -232,6 +232,16 @@ All under `/api/plugins/telegram-app/`.
 - Login depends on private Hermes internals (see [compatibility](#compatibility)).
 - One dashboard process, one profile: multi-profile hosting and `plugins.isolation: host` are untested.
 
+## How this was built
+
+hermes-telegram-miniapp was built with AI coding assistance (Claude Code) under the direction of its author, Muhammad Aiman.
+
+The evidence that it works is meant to be checkable:
+
+- The test suite, run with `python -m pytest` and `cd web && npm test`.
+- CI on Python 3.11 and 3.12, and Node 22 for every pull request.
+- 2 tagged releases, with notes in [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 MIT, see [LICENSE](LICENSE). Security issues: see [SECURITY.md](SECURITY.md).

@@ -9,8 +9,8 @@ All notable changes to this project are documented here. The format follows
 
 - Credentials and settings (`TELEGRAM_BOT_TOKEN`, the allowlist, `TELEGRAM_INITDATA_MAX_AGE`, `TELEGRAM_BOT_ID`) are
   read through Hermes's `agent.secret_scope.get_secret` instead of parsing `~/.hermes/.env` directly. This honours
-  the active profile when one dashboard serves several. **Restart the dashboard after editing `.env`**; it was
-  re-read on every request before.
+  the active profile when one dashboard serves several. Values saved through Hermes apply at once, but **after
+  editing `.env` by hand, restart the dashboard**; the plugin used to re-read the file on every request.
 
 ### Added
 

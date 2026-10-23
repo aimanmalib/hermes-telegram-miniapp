@@ -3,6 +3,21 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] - 2026-10-23
+
+### Changed
+
+- Credentials and settings (`TELEGRAM_BOT_TOKEN`, the allowlist, `TELEGRAM_INITDATA_MAX_AGE`, `TELEGRAM_BOT_ID`) are
+  read through Hermes's `agent.secret_scope.get_secret` instead of parsing `~/.hermes/.env` directly. This honours
+  the active profile when one dashboard serves several. Values saved through Hermes apply at once, but **after
+  editing `.env` by hand, restart the dashboard**; the plugin used to re-read the file on every request.
+
+### Added
+
+- `plugin/plugin.yaml` and `plugin/__init__.py`, so `hermes plugins validate plugin/` can check the plugin. One check
+  still fails: login adds its two routes to Hermes's private `_PUBLIC_API_PATHS`, because Hermes has no public way
+  for a plugin to declare an unauthenticated or plugin-authenticated route.
+
 ## [0.2.0] - 2026-10-22
 
 First public release.

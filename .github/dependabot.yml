@@ -1,12 +1,11 @@
 version: 2
 updates:
+  # Test-only dependencies (requirements-dev.txt); Hermes supplies the runtime ones. No major-version ignore here:
+  # it also held back security fixes that only exist in a new major (cryptography 46 -> 50, pytest 8 -> 9).
   - package-ecosystem: pip
     directory: /
     schedule:
       interval: monthly
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /web

@@ -1,6 +1,6 @@
 # Test-only dependencies. Hermes provides fastapi/pydantic at runtime;
 # cryptography is optional at runtime (enables the Ed25519 fallback).
-pytest==8.4.2
+pytest==9.1.1
 fastapi==0.146.0
 httpx==0.28.1
-cryptography==46.0.7
+cryptography==50.0.2

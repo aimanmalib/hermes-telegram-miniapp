@@ -5,7 +5,7 @@ type: software
 authors:
   - given-names: Muhammad
     family-names: Aiman
-version: 0.2.0
+version: 0.3.0
 license: MIT
 repository-code: "https://github.com/aimanmalib/hermes-telegram-miniapp"
 abstract: >-

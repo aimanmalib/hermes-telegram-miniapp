@@ -155,22 +155,13 @@ def _get_session_token() -> str:
 
 
 # ---------------------------------------------------------------------------
-# Config — read at request time so .env edits are picked up without a restart.
+# Config — every value goes through Hermes's credential route (hermes_env.py).
 # ---------------------------------------------------------------------------
+hermes_env = _load_sibling("hermes_env")
+
+
 def _env(name: str, default: str = "") -> str:
-    val = os.getenv(name, "").strip()
-    if val:
-        return val
-    env_file = _hermes_home() / ".env"
-    if env_file.exists():
-        for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
-            line = line.strip()
-            if line.startswith("#") or "=" not in line:
-                continue
-            k, _, v = line.partition("=")
-            if k.strip() == name:
-                return v.strip().strip('"').strip("'")
-    return default
+    return hermes_env.get(name, default)
 
 
 def _bot_token() -> str:

@@ -3,7 +3,7 @@
   "label": "Telegram Mini App",
   "description": "Backend for the Hermes Telegram Mini App: verifies Telegram initData, exposes phone-sized status, sessions, cron, logs and alerts endpoints.",
   "icon": "MessageSquare",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "tab": {
     "path": "/telegram-app",
     "position": "after:cron",

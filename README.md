@@ -100,6 +100,9 @@ TELEGRAM_OWNER_ID=1234567890
 # TELEGRAM_INITDATA_MAX_AGE=3600
 ```
 
+The plugin reads these through Hermes (`agent.secret_scope.get_secret`), never from the file itself, so restart the
+dashboard after editing `.env`.
+
 `~/.hermes/config.yaml`, so Hermes is allowed to load the plugin's backend:
 
 ```yaml

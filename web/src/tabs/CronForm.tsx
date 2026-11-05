@@ -1,5 +1,5 @@
 import { tgHapticImpact, ToggleRow } from "../components";
-import { CRON_TEXT } from "../cron";
+import { t } from "../i18n";
 
 export const SCHEDULE_PRESETS: { label: string; value: string }[] = [
   { label: "Every 30m", value: "30m" },
@@ -123,13 +123,13 @@ export function CronForm({
 
       {showCatchUp && (
         <ToggleRow
-          label={CRON_TEXT.catchUpLabel}
+          label={t("cron.catchUpLabel")}
           hint={
             form.catch_up === null
-              ? CRON_TEXT.catchUpDefault
+              ? t("cron.catchUpDefault")
               : form.catch_up
-                ? CRON_TEXT.catchUpOn
-                : CRON_TEXT.catchUpOff
+                ? t("cron.catchUpOn")
+                : t("cron.catchUpOff")
           }
           checked={form.catch_up === true}
           disabled={busy}

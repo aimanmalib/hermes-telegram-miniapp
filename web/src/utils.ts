@@ -1,26 +1,29 @@
 /**
  * Format helpers — file sizes, timestamps, etc. No deps.
+ * Words come from the language files (i18n); numbers and dates use Intl.
  */
 
+import { fmtDate, fmtNumber, t } from "./i18n";
+
 export function formatBytes(gb: number): string {
-  if (gb >= 1) return `${gb.toFixed(1)} GB`;
-  return `${(gb * 1024).toFixed(0)} MB`;
+  if (gb >= 1) return `${fmtNumber(gb, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} GB`;
+  return `${fmtNumber(Math.round(gb * 1024))} MB`;
 }
 
 export function formatRelative(ts: number | null | undefined): string {
   if (!ts) return "—";
   const ms = ts * 1000;
   const diff = Date.now() - ms;
-  if (diff < 0) return "now";
+  if (diff < 0) return t("fmt.now");
   const sec = Math.floor(diff / 1000);
-  if (sec < 60) return `${sec}s ago`;
+  if (sec < 60) return t("fmt.secAgo", { n: sec });
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
+  if (min < 60) return t("fmt.minAgo", { n: min });
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
+  if (hr < 24) return t("fmt.hrAgo", { n: hr });
   const day = Math.floor(hr / 24);
-  if (day < 7) return `${day}d ago`;
-  return new Date(ms).toLocaleDateString();
+  if (day < 7) return t("fmt.dayAgo", { n: day });
+  return fmtDate(ms);
 }
 
 export function formatUptime(sec: number): string {
@@ -28,10 +31,10 @@ export function formatUptime(sec: number): string {
   const h = Math.floor((sec % 86400) / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const parts: string[] = [];
-  if (d) parts.push(`${d}d`);
-  if (h) parts.push(`${h}h`);
-  if (!d && (m || h)) parts.push(`${m}m`);
-  return parts.join(" ") || "<1m";
+  if (d) parts.push(t("fmt.dur.d", { n: d }));
+  if (h) parts.push(t("fmt.dur.h", { n: h }));
+  if (!d && (m || h)) parts.push(t("fmt.dur.m", { n: m }));
+  return parts.join(" ") || t("fmt.dur.lt1m");
 }
 
 export function formatTokens(n: number): string {
@@ -74,11 +77,11 @@ export function formatWhen(ts: number | null | undefined): string {
   const diff = ts * 1000 - Date.now();
   if (diff <= 0) return formatRelative(ts);
   const min = Math.round(diff / 60_000);
-  if (min < 1) return "in <1m";
-  if (min < 60) return `in ${min}m`;
+  if (min < 1) return t("fmt.inLt1m");
+  if (min < 60) return t("fmt.inMin", { n: min });
   const hr = Math.round(min / 60);
-  if (hr < 24) return `in ${hr}h`;
-  return `in ${Math.round(hr / 24)}d`;
+  if (hr < 24) return t("fmt.inHr", { n: hr });
+  return t("fmt.inDay", { n: Math.round(hr / 24) });
 }
 
 /** Human-readable cron schedule; current Hermes stores ``schedule`` as an object. */

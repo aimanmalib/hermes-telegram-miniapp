@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { getSessionMessages, SessionMessage } from "../api";
 import { formatRelative } from "../utils";
 import { ErrorBox, Loading, tgHapticImpact } from "../components";
+import { t } from "../i18n";
 
 export function SessionDetail({
   sessionId,
@@ -68,9 +69,9 @@ export function SessionDetail({
             tgHapticImpact("light");
             onBack();
           }}
-          aria-label="Back"
+          aria-label={t("common.back")}
         >
-          ← Back
+          ← {t("common.back")}
         </button>
         <div className="detail-title" title={title}>
           {title}
@@ -79,7 +80,7 @@ export function SessionDetail({
       {error && <ErrorBox msg={error} />}
       {!error && !messages && <Loading />}
       {messages && messages.length === 0 && (
-        <div className="empty">Empty session.</div>
+        <div className="empty">{t("detail.empty")}</div>
       )}
       {messages && messages.length > 0 && (
         <div className="messages">
@@ -93,16 +94,15 @@ export function SessionDetail({
   );
 }
 
-const ROLE_LABEL: Record<string, string> = {
-  user: "You",
-  assistant: "Hermes",
-  system: "System",
-  tool: "Tool",
-};
+const ROLES = ["user", "assistant", "system", "tool"];
 
 function MessageBubble({ msg }: { msg: SessionMessage }) {
   const role = msg.role ?? "system";
-  const label = msg.name ? `Tool: ${msg.name}` : (ROLE_LABEL[role] ?? role);
+  const label = msg.name
+    ? t("role.toolNamed", { name: msg.name })
+    : ROLES.includes(role)
+      ? t(`role.${role}`)
+      : role;
   const content = msg.content ?? "";
   return (
     <div className={`msg msg-${role}`}>

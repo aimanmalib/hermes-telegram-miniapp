@@ -9,6 +9,9 @@ import { LogsTab } from "./tabs/LogsTab";
 import { KnowledgeTab } from "./tabs/KnowledgeTab";
 import { SendTab } from "./tabs/SendTab";
 import { DEMO_ENABLED } from "./demo-gate";
+import { initLang, t } from "./i18n";
+import { useLang } from "./i18n/useLang";
+import { demoBannerText } from "./i18n/demo-banner";
 
 type Tab = "status" | "sessions" | "cron" | "logs" | "knowledge" | "send";
 
@@ -104,10 +107,15 @@ export function App() {
   const [authReason, setAuthReason] = useState<string>("");
   const [user, setUser] = useState<AuthUser | null>(null);
   const [view, setView] = useState<View>({ tab: "status" });
+  useLang();
 
   // ---- Mount: init Telegram + login -------------------------------------
   useEffect(() => {
     const tg = getTelegramWebApp();
+    initLang(
+      tg?.initDataUnsafe?.user?.language_code,
+      DEMO_ENABLED ? new URLSearchParams(window.location.search).get("lang") : null,
+    );
     if (DEMO_ENABLED) {
       const scheme = demoScheme();
       applyTelegramTheme(DEMO_THEMES[scheme], scheme);
@@ -150,7 +158,7 @@ export function App() {
     return (
       <div className="auth-gate">
         <span className="spinner" />
-        <p>Connecting to Hermes…</p>
+        <p>{t("app.connecting")}</p>
       </div>
     );
   }
@@ -158,12 +166,9 @@ export function App() {
   if (authState === "fail") {
     return (
       <div className="auth-gate">
-        <h2>Not authenticated</h2>
+        <h2>{t("app.notAuthenticated")}</h2>
         {authReason === "no_init_data" ? (
-          <p>
-            Open this app from the Telegram bot menu button so it can sign you
-            in. Direct browser access is locked.
-          </p>
+          <p>{t("app.openFromBot")}</p>
         ) : (
           <p>{authReason}</p>
         )}
@@ -178,13 +183,13 @@ export function App() {
       <header className="app-header">
         {DEMO_ENABLED && (
           <div className="demo-banner" role="status">
-            Demo data · not connected to Hermes
+            {demoBannerText()}
           </div>
         )}
         <h1>⚡ Hermes</h1>
         <div className="user-chip">
           <span className="dot" />
-          <span>{user?.first_name ?? user?.username ?? "you"}</span>
+          <span>{user?.first_name ?? user?.username ?? t("app.userFallback")}</span>
         </div>
       </header>
       <main className="app-content">
@@ -205,7 +210,7 @@ export function App() {
         {view.tab === "sessions" && inDetail && (
           <SessionDetail
             sessionId={view.sessionId!}
-            title={view.sessionTitle ?? "Session"}
+            title={view.sessionTitle ?? t("sessions.fallbackTitle")}
             onBack={() => setView({ tab: "sessions" })}
           />
         )}
@@ -218,37 +223,37 @@ export function App() {
         <TabButton
           active={view.tab === "status"}
           icon="📊"
-          label="Status"
+          label={t("tab.status")}
           onClick={() => setView({ tab: "status" })}
         />
         <TabButton
           active={view.tab === "sessions"}
           icon="💬"
-          label="Sessions"
+          label={t("tab.sessions")}
           onClick={() => setView({ tab: "sessions" })}
         />
         <TabButton
           active={view.tab === "cron"}
           icon="⏱"
-          label="Cron"
+          label={t("tab.cron")}
           onClick={() => setView({ tab: "cron" })}
         />
         <TabButton
           active={view.tab === "logs"}
           icon="📜"
-          label="Logs"
+          label={t("tab.logs")}
           onClick={() => setView({ tab: "logs" })}
         />
         <TabButton
           active={view.tab === "knowledge"}
           icon="🧠"
-          label="Brain"
+          label={t("tab.knowledge")}
           onClick={() => setView({ tab: "knowledge" })}
         />
         <TabButton
           active={view.tab === "send"}
           icon="✉️"
-          label="Send"
+          label={t("tab.send")}
           onClick={() => setView({ tab: "send" })}
         />
       </nav>

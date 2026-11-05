@@ -2,30 +2,11 @@
  * Cron tab logic that does not need React: what to offer for a job, what to
  * send for "Run missed jobs", and how to word server answers.
  *
- * The user-facing strings for the Stop / catch-up features live in CRON_TEXT
- * so the i18n pass can move them to the language files in one place.
+ * User-facing words live in the language files under `cron.*`.
  */
 
 import type { Capabilities, CronCancelResp, CronJob } from "./api";
-
-export const CRON_TEXT = {
-  badgeRunning: "running",
-  stop: "Stop",
-  stopping: "Stopping…",
-  stopConfirm: (name: string) =>
-    `Stop the run of "${name}" that is in progress? The schedule stays as it is.`,
-  stopped: (name: string) => `Stopped "${name}".`,
-  stopIdle: (name: string) => `"${name}" had already finished; nothing to stop.`,
-  catchUpLabel: "Run missed jobs",
-  catchUpOn: "If Hermes was down at a scheduled time, run the job once when it is back.",
-  catchUpOff: "Skip runs that were missed while Hermes was down.",
-  catchUpDefault: "Not set: Hermes uses its global setting.",
-  warnings: {
-    catch_up_unsupported:
-      "This Hermes cannot store “Run missed jobs”; the job was saved without it.",
-  } as Record<string, string>,
-  warningFallback: (code: string) => `Saved with a warning: ${code}`,
-};
+import { t } from "./i18n";
 
 /** Stop is offered only for a run in flight, and only when Hermes can stop it. */
 export function canStop(job: CronJob, caps: Capabilities): boolean {
@@ -54,11 +35,17 @@ export function catchUpToSend(
 
 export function warningsText(codes: string[] | undefined): string | null {
   if (!codes?.length) return null;
-  return codes.map((c) => CRON_TEXT.warnings[c] ?? CRON_TEXT.warningFallback(c)).join(" ");
+  return codes
+    .map((c) => {
+      const key = `cron.warning.${c}`;
+      const text = t(key);
+      return text === key ? t("cron.warningFallback", { code: c }) : text;
+    })
+    .join(" ");
 }
 
 export function cancelNotice(resp: CronCancelResp, name: string): string {
-  return resp.action === "cancelled" ? CRON_TEXT.stopped(name) : CRON_TEXT.stopIdle(name);
+  return t(resp.action === "cancelled" ? "cron.stopped" : "cron.stopIdle", { name });
 }
 
 /**

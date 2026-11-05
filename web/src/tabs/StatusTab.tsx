@@ -18,15 +18,10 @@ import {
   formatUsd,
   truncate,
 } from "../utils";
-import { ErrorBox, Loading, SectionTitle, tgHapticImpact, ToggleRow } from "../components";
+import { ErrorBox, LangSwitch, Loading, SectionTitle, tgHapticImpact, ToggleRow } from "../components";
+import { fmtNumber, t } from "../i18n";
 
 const WINDOWS: UsageWindow[] = ["today", "week", "month", "all"];
-const WINDOW_LABEL: Record<UsageWindow, string> = {
-  today: "Today",
-  week: "7d",
-  month: "30d",
-  all: "All",
-};
 
 export function StatusTab({
   onOpenSession,
@@ -82,45 +77,50 @@ export function StatusTab({
 
   return (
     <>
-      <SectionTitle>System</SectionTitle>
+      <SectionTitle>{t("status.system")}</SectionTitle>
       <div className="gauges">
         <Gauge
-          name="CPU"
+          name={t("status.cpu")}
           pct={data.cpu_pct}
-          sub={`load ${data.load_avg.map((l) => l.toFixed(2)).join(" ")}`}
+          sub={t("status.load", {
+            values: data.load_avg
+              .map((l) => fmtNumber(l, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+              .join(" "),
+          })}
         />
         <Gauge
-          name="Memory"
+          name={t("status.memory")}
           pct={data.mem_pct}
           sub={`${formatBytes(data.mem_used_gb)} / ${formatBytes(data.mem_total_gb)}`}
         />
         <Gauge
-          name="Disk"
+          name={t("status.disk")}
           pct={data.disk_pct}
           sub={`${formatBytes(data.disk_used_gb)} / ${formatBytes(data.disk_total_gb)}`}
         />
-        <Gauge name="Uptime" pct={null} sub={formatUptime(data.uptime_sec)} />
+        <Gauge name={t("status.uptime")} pct={null} sub={formatUptime(data.uptime_sec)} />
       </div>
 
-      <SectionTitle>Hermes</SectionTitle>
+      <SectionTitle>{t("status.hermes")}</SectionTitle>
       <div className="card group">
         <div className="row">
-          <span className="label">Sessions</span>
-          <span className="value">{data.sessions_count}</span>
+          <span className="label">{t("status.sessions")}</span>
+          <span className="value">{fmtNumber(data.sessions_count)}</span>
         </div>
         <div className="row">
-          <span className="label">Cron jobs</span>
-          <span className="value">{data.cron_count}</span>
+          <span className="label">{t("status.cronJobs")}</span>
+          <span className="value">{fmtNumber(data.cron_count)}</span>
         </div>
       </div>
 
       {/* ---- Usage --------------------------------------------- */}
       <div className="section-title-row">
-        <SectionTitle>Usage</SectionTitle>
+        <SectionTitle>{t("status.usage")}</SectionTitle>
         <div
           style={{
             display: "flex",
             gap: 4,
+            marginLeft: "var(--space-4)",
             marginRight: "var(--space-4)",
           }}
         >
@@ -135,7 +135,7 @@ export function StatusTab({
                 tgHapticImpact("light");
               }}
             >
-              {WINDOW_LABEL[w]}
+              {t(`status.window.${w}`)}
             </button>
           ))}
         </div>
@@ -147,26 +147,30 @@ export function StatusTab({
         <>
           <div className="usage-grid">
             <UsageCard
-              label="Spend"
+              label={t("status.spend")}
               value={formatUsd(usage.estimated_cost_usd)}
-              hint={`${usage.session_count} session${
-                usage.session_count === 1 ? "" : "s"
-              }`}
+              hint={t("status.sessionCount", { count: usage.session_count })}
               accent
             />
             <UsageCard
-              label="Tokens"
+              label={t("status.tokens")}
               value={formatTokens(usage.total_tokens)}
-              hint={`in ${formatTokens(usage.input_tokens)} · out ${formatTokens(
-                usage.output_tokens,
-              )}`}
+              hint={t("status.tokensInOut", {
+                in: formatTokens(usage.input_tokens),
+                out: formatTokens(usage.output_tokens),
+              })}
             />
             <UsageCard
-              label="Messages"
-              value={String(usage.message_count)}
+              label={t("status.messages")}
+              value={fmtNumber(usage.message_count)}
               hint={
                 usage.session_count > 0
-                  ? `${(usage.message_count / usage.session_count).toFixed(1)} avg / session`
+                  ? t("status.avgPerSession", {
+                      avg: fmtNumber(usage.message_count / usage.session_count, {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      }),
+                    })
                   : "—"
               }
             />
@@ -181,7 +185,7 @@ export function StatusTab({
                   marginTop: 0,
                 }}
               >
-                Top by cost
+                {t("status.topByCost")}
               </div>
               {usage.top_sessions.map((s) => (
                 <button
@@ -196,7 +200,7 @@ export function StatusTab({
                   <div className="item-title">{truncate(s.title, 60)}</div>
                   <div className="item-meta">
                     <span className="src">{s.source ?? "?"}</span>
-                    <span>{s.message_count} msgs</span>
+                    <span>{t("common.msgs", { count: s.message_count })}</span>
                     <span>
                       {formatTokens(s.input_tokens + s.output_tokens)}
                     </span>
@@ -212,6 +216,14 @@ export function StatusTab({
       )}
 
       <AlertsCard />
+
+      <SectionTitle>{t("lang.title")}</SectionTitle>
+      <div className="card group">
+        <div className="row">
+          <span className="label">{t("lang.label")}</span>
+          <LangSwitch />
+        </div>
+      </div>
     </>
   );
 }
@@ -255,7 +267,7 @@ function AlertsCard() {
   const saveCost = async () => {
     const n = parseFloat(costInput);
     if (Number.isNaN(n) || n < 0) {
-      setErr("invalid threshold");
+      setErr(t("alerts.invalidThreshold"));
       return;
     }
     setBusy("cost");
@@ -276,9 +288,11 @@ function AlertsCard() {
     tgHapticImpact("medium");
     try {
       const r = await testAlert();
-      setTestMsg(r.sent ? "Test DM sent ✓" : `Failed: ${r.reason ?? "unknown"}`);
+      setTestMsg(
+        r.sent ? t("alerts.testSent") : t("alerts.testFailed", { reason: r.reason ?? t("common.unknown") }),
+      );
     } catch (e) {
-      setTestMsg(`Failed: ${(e as Error).message ?? e}`);
+      setTestMsg(t("alerts.testFailed", { reason: String((e as Error).message ?? e) }));
     } finally {
       setBusy(null);
     }
@@ -286,42 +300,41 @@ function AlertsCard() {
 
   return (
     <>
-      <SectionTitle>Push alerts</SectionTitle>
+      <SectionTitle>{t("alerts.title")}</SectionTitle>
       {err && <ErrorBox msg={err} />}
       {!status && !err && <Loading />}
       {status && (
         <div className="alerts-card">
           {!status.has_bot_token || !status.has_owner_chat ? (
             <div className="alerts-warn">
-              ⚠ Bot token / owner chat not configured — alerts won't be
-              delivered. Check Telegram gateway settings.
+              {t("alerts.notConfigured")}
             </div>
           ) : null}
 
           <ToggleRow
-            label="Cron failures"
-            hint="DM when a job's last_status is failed/error"
+            label={t("alerts.cronFailures")}
+            hint={t("alerts.cronFailuresHint")}
             checked={status.settings.cron_failures}
             disabled={busy === "cron_failures"}
             onChange={(v) => toggle("cron_failures", v)}
           />
           <ToggleRow
-            label="Error log"
-            hint={`Tail ~/.hermes/logs/errors.log (${status.settings.error_throttle_sec}s throttle)`}
+            label={t("alerts.errorLog")}
+            hint={t("alerts.errorLogHint", { sec: status.settings.error_throttle_sec })}
             checked={status.settings.error_log}
             disabled={busy === "error_log"}
             onChange={(v) => toggle("error_log", v)}
           />
           <ToggleRow
-            label="Daily spend threshold"
-            hint={`Fire once when today's spend ≥ $${status.settings.cost_daily_usd}`}
+            label={t("alerts.costThreshold")}
+            hint={t("alerts.costThresholdHint", { usd: status.settings.cost_daily_usd })}
             checked={status.settings.cost_threshold}
             disabled={busy === "cost_threshold"}
             onChange={(v) => toggle("cost_threshold", v)}
           />
 
           <div className="alerts-row threshold">
-            <span className="alerts-label">Threshold (USD/day)</span>
+            <span className="alerts-label">{t("alerts.thresholdLabel")}</span>
             <input
               type="number"
               inputMode="decimal"
@@ -337,18 +350,19 @@ function AlertsCard() {
               onClick={saveCost}
               disabled={busy === "cost"}
             >
-              Save
+              {t("common.save")}
             </button>
           </div>
 
           <div className="alerts-meta">
             <span>
-              Watcher: <b>{status.running ? "running" : "stopped"}</b>
+              {t("alerts.watcher")}{" "}
+              <b>{t(status.running ? "alerts.watcherRunning" : "alerts.watcherStopped")}</b>
             </span>
             {status.last_alert_kind && (
-              <span>last: {status.last_alert_kind}</span>
+              <span>{t("alerts.last", { kind: status.last_alert_kind })}</span>
             )}
-            <span>err today: {status.errors_emitted_today}</span>
+            <span>{t("alerts.errToday", { count: status.errors_emitted_today })}</span>
           </div>
 
           <div className="alerts-actions">
@@ -358,7 +372,7 @@ function AlertsCard() {
               onClick={sendTest}
               disabled={busy === "test"}
             >
-              {busy === "test" ? "Sending…" : "Send test DM"}
+              {busy === "test" ? t("alerts.sending") : t("alerts.sendTest")}
             </button>
             <button
               type="button"
@@ -366,7 +380,7 @@ function AlertsCard() {
               onClick={refresh}
               disabled={busy !== null}
             >
-              Refresh
+              {t("common.refresh")}
             </button>
           </div>
           {testMsg && <div className="alerts-toast">{testMsg}</div>}

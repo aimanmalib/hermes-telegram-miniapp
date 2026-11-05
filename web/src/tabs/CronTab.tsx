@@ -12,7 +12,8 @@ import {
   getCron,
   NO_CAPABILITIES,
 } from "../api";
-import { cancelNotice, canStop, catchUpInitial, catchUpToSend, CRON_TEXT, formBusy, warningsText } from "../cron";
+import { t } from "../i18n";
+import { cancelNotice, canStop, catchUpInitial, catchUpToSend, formBusy, warningsText } from "../cron";
 import { CronForm, EMPTY_FORM, FormState } from "./CronForm";
 import "../cron.css";
 import { formatRelative, formatWhen, scheduleInput, scheduleLabel, toEpochSeconds, truncate } from "../utils";
@@ -81,7 +82,7 @@ export function CronTab() {
   const stop = async (job: CronJob) => {
     const name = job.name ?? job.id;
     tgHaptic("warning");
-    if (!window.confirm(CRON_TEXT.stopConfirm(name))) return;
+    if (!window.confirm(t("cron.stopConfirm", { name }))) return;
     setNotice(null);
     setBusy(job.id + "/cancel");
     try {
@@ -225,7 +226,7 @@ export function CronTab() {
         const running = j.running === true;
         const stoppable = canStop(j, caps);
         const badge = running
-          ? { cls: "badge running", text: CRON_TEXT.badgeRunning }
+          ? { cls: "badge running", text: t("cron.badgeRunning") }
           : !enabled
             ? { cls: "badge paused", text: "paused" }
             : failed
@@ -261,7 +262,7 @@ export function CronTab() {
                   aria-busy={busy === j.id + "/cancel"}
                   onClick={() => stop(j)}
                 >
-                  {busy === j.id + "/cancel" ? CRON_TEXT.stopping : CRON_TEXT.stop}
+                  {busy === j.id + "/cancel" ? t("cron.stopping") : t("cron.stop")}
                 </button>
               )}
               {enabled ? (

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Capabilities, CronJob } from "./api";
-import { cancelNotice, canStop, catchUpInitial, catchUpToSend, CRON_TEXT, formBusy, warningsText } from "./cron";
+import { t } from "./i18n";
+import { cancelNotice, canStop, catchUpInitial, catchUpToSend, formBusy, warningsText } from "./cron";
 
 const ALL: Capabilities = { cron_cancel: true, cron_catch_up: true };
 const NONE: Capabilities = { cron_cancel: false, cron_catch_up: false };
@@ -53,15 +54,15 @@ describe("server answers", () => {
   it("words a stopped run and a run that had already finished differently", () => {
     const stopped = cancelNotice({ ok: true, id: "j1", action: "cancelled", cancelled: true }, "Job");
     const idle = cancelNotice({ ok: true, id: "j1", action: "idle", cancelled: false }, "Job");
-    expect(stopped).toBe(CRON_TEXT.stopped("Job"));
-    expect(idle).toBe(CRON_TEXT.stopIdle("Job"));
+    expect(stopped).toBe(t("cron.stopped", { name: "Job" }));
+    expect(idle).toBe(t("cron.stopIdle", { name: "Job" }));
     expect(stopped).not.toBe(idle);
   });
 
   it("maps warning codes to text and keeps unknown codes visible", () => {
     expect(warningsText(undefined)).toBeNull();
     expect(warningsText([])).toBeNull();
-    expect(warningsText(["catch_up_unsupported"])).toBe(CRON_TEXT.warnings.catch_up_unsupported);
+    expect(warningsText(["catch_up_unsupported"])).toBe(t("cron.warning.catch_up_unsupported"));
     expect(warningsText(["new_code"])).toContain("new_code");
   });
 });

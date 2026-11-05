@@ -4,6 +4,8 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { DICTS, getLang, LANGS, setLang, t } from "./i18n";
+import "./i18n.css";
 
 export function Loading() {
   return (
@@ -158,9 +160,9 @@ export function PullToRefresh({
         {refreshing ? (
           <span className="spinner small" />
         ) : pull >= threshold ? (
-          <span>Release to refresh</span>
+          <span>{t("common.releaseToRefresh")}</span>
         ) : (
-          <span>Pull to refresh</span>
+          <span>{t("common.pullToRefresh")}</span>
         )}
       </div>
       {children}
@@ -195,5 +197,31 @@ export function ToggleRow({
         onChange={(e) => onChange(e.target.checked)}
       />
     </label>
+  );
+}
+
+/** Segmented EN | BM control (Status tab). Labels come from each language file. */
+export function LangSwitch() {
+  const active = getLang();
+  return (
+    <div className="lang-switch" role="group" aria-label={t("lang.label")}>
+      {LANGS.map((l) => (
+        <button
+          key={l}
+          type="button"
+          lang={DICTS[l]["meta.locale"]}
+          aria-label={DICTS[l]["meta.name"]}
+          aria-pressed={l === active}
+          data-active={l === active}
+          onClick={() => {
+            if (l === active) return;
+            tgHapticImpact("light");
+            setLang(l);
+          }}
+        >
+          {DICTS[l]["meta.short"]}
+        </button>
+      ))}
+    </div>
   );
 }

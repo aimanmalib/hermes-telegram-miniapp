@@ -8,6 +8,7 @@ import {
   SectionTitle,
   tgHapticImpact,
 } from "../components";
+import { t } from "../i18n";
 
 export function SessionsTab({
   onOpen,
@@ -43,10 +44,10 @@ export function SessionsTab({
   return (
     <PullToRefresh onRefresh={load}>
       {rows.length === 0 ? (
-        <div className="empty">No sessions yet.</div>
+        <div className="empty">{t("sessions.empty")}</div>
       ) : (
         <>
-          <SectionTitle>Recent sessions</SectionTitle>
+          <SectionTitle>{t("sessions.recent")}</SectionTitle>
           {error && <ErrorBox msg={error} />}
           {rows.map((s) => (
             <button
@@ -62,7 +63,7 @@ export function SessionsTab({
               <div className="item-preview">{truncate(s.preview, 80)}</div>
               <div className="item-meta">
                 <span className="src">{s.source}</span>
-                <span>{s.message_count ?? 0} msgs</span>
+                <span>{t("common.msgs", { count: s.message_count ?? 0 })}</span>
                 <span>
                   {formatTokens((s.input_tokens ?? 0) + (s.output_tokens ?? 0))}
                 </span>

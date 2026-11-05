@@ -6,40 +6,7 @@ import sys
 import time
 import types
 
-import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
-from conftest import OWNER_ID, load_module, make_init_data
-
-SESSION_TOKEN = "dashboard-session-token-for-tests"
-PREFIX = "/api/plugins/telegram-app"
-
-
-@pytest.fixture
-def plugin(tmp_path, monkeypatch):
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.setenv("TELEGRAM_APP_ALERTS_DISABLED", "1")
-    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456789:AAE-known-answer-test-token")
-    monkeypatch.setenv("TELEGRAM_OWNER_ID", str(OWNER_ID))
-    for var in ("TELEGRAM_ALLOWED_USERS", "TELEGRAM_INITDATA_MAX_AGE", "TELEGRAM_BOT_ID"):
-        monkeypatch.delenv(var, raising=False)
-
-    ws = types.ModuleType("hermes_cli.web_server")
-    ws._SESSION_TOKEN = SESSION_TOKEN
-    ws._PUBLIC_API_PATHS = frozenset({"/api/status"})
-    pkg = types.ModuleType("hermes_cli")
-    pkg.web_server = ws
-    monkeypatch.setitem(sys.modules, "hermes_cli", pkg)
-    monkeypatch.setitem(sys.modules, "hermes_cli.web_server", ws)
-    for name in list(sys.modules):
-        if name.startswith("hermes_tma_"):
-            monkeypatch.delitem(sys.modules, name)
-
-    mod = load_module("plugin_api", "hermes_dashboard_plugin_telegram_app_test")
-    app = FastAPI()
-    app.include_router(mod.router, prefix=PREFIX)
-    return types.SimpleNamespace(mod=mod, ws=ws, client=TestClient(app))
+from conftest import OWNER_ID, PREFIX, SESSION_TOKEN, make_init_data
 
 
 def _login(client, init_data):

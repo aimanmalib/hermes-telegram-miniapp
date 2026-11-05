@@ -24,7 +24,6 @@ import datetime as _dt
 import importlib.util
 import json
 import logging
-import os
 import sys
 import threading
 import time
@@ -38,13 +37,7 @@ _log = logging.getLogger("hermes.plugin.telegram-app.alerts")
 
 
 def _hermes_home() -> Path:
-    try:
-        from hermes_constants import get_hermes_home  # type: ignore
-
-        return Path(get_hermes_home())
-    except Exception:
-        env = os.environ.get("HERMES_HOME", "").strip()
-        return Path(env).expanduser() if env else Path.home() / ".hermes"
+    return _compat().hermes_home()
 
 
 def _plugin_dir() -> Path:
@@ -205,13 +198,13 @@ def _save_state(state: Dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # Telegram delivery
 # ---------------------------------------------------------------------------
-def _hermes_env():
-    """``hermes_env.py`` beside this file, shared with plugin_api under one module name."""
-    name = "hermes_tma_hermes_env"
+def _compat():
+    """``hermes_compat.py`` beside this file, shared with plugin_api under one module name."""
+    name = "hermes_tma_hermes_compat"
     if name not in sys.modules:
-        spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parent / "hermes_env.py")
+        spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parent / "hermes_compat.py")
         if spec is None or spec.loader is None:
-            raise ImportError("cannot load hermes_env.py")
+            raise ImportError("cannot load hermes_compat.py")
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         sys.modules[name] = mod
@@ -220,11 +213,11 @@ def _hermes_env():
 
 def _bot_token_and_chat() -> Optional[tuple[str, int]]:
     """Bot token + first allowed chat id, through Hermes's credential route."""
-    env = _hermes_env()
-    token = env.get("TELEGRAM_BOT_TOKEN")
+    secret = _compat().secret
+    token = secret("TELEGRAM_BOT_TOKEN")
     if not token:
         return None
-    raw = ",".join(x for x in (env.get("TELEGRAM_OWNER_ID"), env.get("TELEGRAM_ALLOWED_USERS")) if x)
+    raw = ",".join(x for x in (secret("TELEGRAM_OWNER_ID"), secret("TELEGRAM_ALLOWED_USERS")) if x)
     for piece in raw.split(","):
         piece = piece.strip()
         try:

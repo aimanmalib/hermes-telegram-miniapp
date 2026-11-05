@@ -116,7 +116,6 @@
   },
   "metrik": {
     "baris": {
-      "plugin/dashboard/plugin_api.py": 967,
       "web/src/styles.css": 1169
     },
     "dijana": {},

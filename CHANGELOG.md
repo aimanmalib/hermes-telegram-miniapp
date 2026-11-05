@@ -3,6 +3,15 @@
 All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+
+- The backend is split into one module per tab (`plugin/dashboard/routes_*.py`). Every read of Hermes internals
+  (public paths, the dashboard session token, `get_secret`, the Hermes home directory) now lives in
+  `plugin/dashboard/hermes_compat.py`, so a Hermes upgrade that renames one of them breaks a single file.
+  `plugin_api.py` only assembles the router. No change to endpoints or behaviour.
+
 ## [0.3.0] - 2026-10-23
 
 ### Changed

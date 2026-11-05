@@ -2,6 +2,8 @@
 
 Date: 22 October 2026. Scope: how the plugin turns Telegram `initData` into a Hermes dashboard session (`plugin/dashboard/tg_auth.py`, `plugin_api.py`), the endpoints reachable with that session, and the documented deployment.
 
+Code layout since 0.4.0 (no behaviour change): `/health` and `/auth/verify` are in `plugin/dashboard/routes_auth.py`; every read of Hermes internals (`_PUBLIC_API_PATHS`, `_SESSION_TOKEN`, `get_secret`) is in `plugin/dashboard/hermes_compat.py`, and `tests/test_layout.py` fails if one appears anywhere else.
+
 References:
 [validating data received via the Mini App](https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app),
 [validating data for third-party use](https://core.telegram.org/bots/webapps#validating-data-for-third-party-use),

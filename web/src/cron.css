@@ -1,0 +1,102 @@
+/*
+ * Cron tab: job rows, status badges and notices. Imported by CronTab.tsx,
+ * so it loads after styles.css and uses the same theme tokens.
+ */
+
+/* ---- Cron rows ------------------------------------------------------- */
+
+.cron-row {
+  background: var(--tg-section);
+  border-radius: var(--radius);
+  margin: 0 var(--space-4) var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cron-row .name {
+  font-weight: 500;
+}
+
+.cron-row .meta {
+  font-size: 12px;
+  color: var(--tg-hint);
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.cron-row .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.cron-row .badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--tg-accent) 15%, transparent);
+  color: var(--tg-accent);
+}
+
+.cron-row .badge.paused {
+  background: color-mix(in srgb, var(--tma-warn) 15%, transparent);
+  color: var(--tma-warn);
+}
+
+.cron-row .badge.failed {
+  background: color-mix(in srgb, var(--tg-destructive) 15%, transparent);
+  color: var(--tg-destructive);
+}
+
+/* ---- Cron: running job + notices ------------------------------------ */
+.cron-row .badge.running {
+  color: color-mix(in srgb, var(--tg-accent) 55%, var(--tg-text)); /* >= 4.5:1 both themes */
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Only the dot pulses, and only its opacity (no filter: WebKit crash),
+   so the badge text keeps full contrast. */
+.cron-row .badge.running::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cron-row .badge.running::before {
+    animation: none;
+  }
+}
+
+.cron-notice {
+  margin: 0 var(--space-4) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--tg-section);
+  border-radius: var(--radius);
+  color: var(--tg-text);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Stop keeps the Delete look; an invisible strip makes the touch target 44 px. */
+.cron-row .cron-stop {
+  position: relative;
+}
+
+.cron-row .cron-stop::after {
+  content: "";
+  position: absolute;
+  inset: -5px 0;
+}
+

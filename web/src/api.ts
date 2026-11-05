@@ -205,10 +205,56 @@ export interface CronJob {
   last_error?: string | null;
   next_run?: number;
   last_run?: number;
+  /** A run is in flight right now (plugin >= 0.4). */
+  running?: boolean;
+  /** Per-job missed-run policy; null/absent = the Hermes default. */
+  catch_up?: boolean | null;
   [k: string]: unknown;
 }
 
 export const getCron = () => api<{ jobs: CronJob[] }>("/cron");
+
+/** Optional Hermes features the plugin detected (``GET /health``). */
+export interface Capabilities {
+  cron_cancel: boolean;
+  cron_catch_up: boolean;
+}
+
+export const NO_CAPABILITIES: Capabilities = { cron_cancel: false, cron_catch_up: false };
+
+export interface HealthResp {
+  ok: boolean;
+  version?: string;
+  auth_mode?: string;
+  hermes_version?: string | null;
+  capabilities?: Partial<Capabilities>;
+}
+
+export const getHealth = () => api<HealthResp>("/health");
+
+/** Capabilities from /health; anything missing or unreachable counts as unsupported. */
+export async function getCapabilities(): Promise<Capabilities> {
+  try {
+    const caps = (await getHealth())?.capabilities ?? {};
+    return {
+      cron_cancel: caps.cron_cancel === true,
+      cron_catch_up: caps.cron_catch_up === true,
+    };
+  } catch {
+    return NO_CAPABILITIES;
+  }
+}
+
+export interface CronCancelResp {
+  ok: boolean;
+  id: string;
+  /** ``cancelled`` = a run was stopped; ``idle`` = nothing was running. */
+  action: "cancelled" | "idle";
+  cancelled: boolean;
+}
+
+export const cronCancel = (id: string) =>
+  api<CronCancelResp>(`/cron/${encodeURIComponent(id)}/cancel`, { method: "POST" });
 
 export const cronAction = (id: string, action: "pause" | "resume" | "trigger") =>
   api<{ ok: boolean; id: string; action: string }>(`/cron/${encodeURIComponent(id)}/${action}`, {
@@ -226,10 +272,18 @@ export interface CronCreatePayload {
   enabled_toolsets?: string[];
   model?: string;
   provider?: string;
+  catch_up?: boolean;
+}
+
+/** Create/edit answer; ``warnings`` holds codes such as ``catch_up_unsupported``. */
+export interface CronSaveResp {
+  ok: boolean;
+  job: CronJob;
+  warnings?: string[];
 }
 
 export const cronCreate = (payload: CronCreatePayload) =>
-  api<{ ok: boolean; job: CronJob }>("/cron", {
+  api<CronSaveResp>("/cron", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -242,10 +296,12 @@ export interface CronUpdatePayload {
   repeat?: number;
   skills?: string[];
   enabled_toolsets?: string[];
+  /** null resets the job to the Hermes default. */
+  catch_up?: boolean | null;
 }
 
 export const cronUpdate = (id: string, payload: CronUpdatePayload) =>
-  api<{ ok: boolean; job: CronJob }>(`/cron/${encodeURIComponent(id)}`, {
+  api<CronSaveResp>(`/cron/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });

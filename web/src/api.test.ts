@@ -121,6 +121,32 @@ describe("api()", () => {
   });
 });
 
+describe("cron Stop and capabilities", () => {
+  it("posts to the cancel route with the id encoded", async () => {
+    const api = await loadApi();
+    replies.push(jsonResponse(200, { ok: true, id: "a/b", action: "idle", cancelled: false }));
+    const r = await api.cronCancel("a/b");
+    expect(calls[0].url).toBe("/api/plugins/telegram-app/cron/a%2Fb/cancel");
+    expect(calls[0].init.method).toBe("POST");
+    expect(r.action).toBe("idle");
+  });
+
+  it("reads capabilities from /health", async () => {
+    const api = await loadApi();
+    replies.push(jsonResponse(200, { ok: true, capabilities: { cron_cancel: true, cron_catch_up: false } }));
+    expect(await api.getCapabilities()).toEqual({ cron_cancel: true, cron_catch_up: false });
+    expect(calls[0].url).toBe("/api/plugins/telegram-app/health");
+  });
+
+  it("treats an older plugin or a failed /health as no optional features", async () => {
+    const api = await loadApi();
+    replies.push(jsonResponse(200, { ok: true }));
+    expect(await api.getCapabilities()).toEqual(api.NO_CAPABILITIES);
+    replies.push(jsonResponse(500, { detail: "boom" }));
+    expect(await api.getCapabilities()).toEqual(api.NO_CAPABILITIES);
+  });
+});
+
 describe("demo mode is off in normal builds", () => {
   it("does not enable demo mode without a demo build or ?demo=1", async () => {
     vi.resetModules();

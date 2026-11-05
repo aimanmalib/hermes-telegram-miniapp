@@ -137,6 +137,8 @@ function cron(): CronJob[] {
       next_run_at: iso(95 * 60),
       last_run_at: iso(-260 * 60),
       last_status: "ok",
+      running: true,
+      catch_up: true,
     },
     {
       id: "g7h8i9",
@@ -299,6 +301,16 @@ export async function handleDemoRequest(path: string, init: RequestInit = {}): P
   const [route, query = ""] = path.split("?");
   const q = new URLSearchParams(query);
 
+  if (route === "/health") {
+    return {
+      ok: true,
+      plugin: "telegram-app",
+      version: "demo",
+      auth_mode: "token-seam",
+      hermes_version: "0.23.0",
+      capabilities: { cron_cancel: true, cron_catch_up: true },
+    };
+  }
   if (route === "/status") return status();
   if (route === "/usage") return usage((q.get("window") as UsageWindow) || "today");
   if (route === "/sessions") return { sessions: sessions().slice(0, Number(q.get("limit") || 30)) };
@@ -324,15 +336,25 @@ export async function handleDemoRequest(path: string, init: RequestInit = {}): P
       last_run_at: null,
       last_status: null,
     };
+    if (typeof body.catch_up === "boolean") job.catch_up = body.catch_up;
     cron().unshift(job);
-    return { ok: true, job };
+    return { ok: true, job, warnings: [] };
   }
-  const cronMatch = route.match(/^\/cron\/([^/]+)(?:\/(pause|resume|trigger))?$/);
+  const cronMatch = route.match(/^\/cron\/([^/]+)(?:\/(pause|resume|trigger|cancel))?$/);
   if (cronMatch) {
     const id = decodeURIComponent(cronMatch[1]);
     const job = cron().find((j) => j.id === id);
     if (!job) throw new Error(`${path} 404: job not found`);
     const action = cronMatch[2];
+    if (action === "cancel") {
+      const cancelled = job.running === true;
+      job.running = false;
+      if (cancelled) {
+        job.last_run_at = iso(0);
+        job.last_status = "cancelled";
+      }
+      return { ok: true, id, action: cancelled ? "cancelled" : "idle", cancelled };
+    }
     if (action === "pause") job.enabled = false;
     if (action === "resume") job.enabled = true;
     if (action === "trigger") {
@@ -341,7 +363,7 @@ export async function handleDemoRequest(path: string, init: RequestInit = {}): P
     }
     if (method === "PATCH") Object.assign(job, JSON.parse(String(init.body ?? "{}")));
     if (method === "DELETE") cronJobs = cron().filter((j) => j.id !== id);
-    return { ok: true, id, action: action ?? method.toLowerCase(), job };
+    return { ok: true, id, action: action ?? method.toLowerCase(), job, warnings: [] };
   }
   if (route === "/logs") return logs(path);
   if (route === "/skills") return SKILLS;

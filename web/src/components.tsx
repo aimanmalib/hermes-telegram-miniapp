@@ -167,3 +167,33 @@ export function PullToRefresh({
     </div>
   );
 }
+
+/** Label + hint on the left, switch on the right (Alerts settings, cron form). */
+export function ToggleRow({
+  label,
+  hint,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="alerts-row toggle">
+      <div className="alerts-text">
+        <div className="alerts-label">{label}</div>
+        <div className="alerts-hint">{hint}</div>
+      </div>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+    </label>
+  );
+}

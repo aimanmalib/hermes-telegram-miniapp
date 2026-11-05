@@ -18,7 +18,7 @@ import {
   formatUsd,
   truncate,
 } from "../utils";
-import { ErrorBox, Loading, SectionTitle, tgHapticImpact } from "../components";
+import { ErrorBox, Loading, SectionTitle, tgHapticImpact, ToggleRow } from "../components";
 
 const WINDOWS: UsageWindow[] = ["today", "week", "month", "all"];
 const WINDOW_LABEL: Record<UsageWindow, string> = {
@@ -373,35 +373,6 @@ function AlertsCard() {
         </div>
       )}
     </>
-  );
-}
-
-function ToggleRow({
-  label,
-  hint,
-  checked,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  hint: string;
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="alerts-row toggle">
-      <div className="alerts-text">
-        <div className="alerts-label">{label}</div>
-        <div className="alerts-hint">{hint}</div>
-      </div>
-      <input
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-    </label>
   );
 }
 

@@ -1,41 +1,22 @@
 import { useEffect, useState } from "react";
 import {
+  Capabilities,
   CronJob,
   cronAction,
+  cronCancel,
   cronCreate,
   CronCreatePayload,
   cronDelete,
   cronUpdate,
+  getCapabilities,
   getCron,
+  NO_CAPABILITIES,
 } from "../api";
+import { cancelNotice, canStop, catchUpInitial, catchUpToSend, CRON_TEXT, formBusy, warningsText } from "../cron";
+import { CronForm, EMPTY_FORM, FormState } from "./CronForm";
+import "../cron.css";
 import { formatRelative, formatWhen, scheduleInput, scheduleLabel, toEpochSeconds, truncate } from "../utils";
 import { ErrorBox, Loading, PullToRefresh, SectionTitle, tgHaptic, tgHapticImpact } from "../components";
-
-const SCHEDULE_PRESETS: { label: string; value: string }[] = [
-  { label: "Every 30m", value: "30m" },
-  { label: "Hourly", value: "1h" },
-  { label: "Every 6h", value: "6h" },
-  { label: "Daily 9am", value: "0 9 * * *" },
-  { label: "Daily 9pm", value: "0 21 * * *" },
-  { label: "Weekdays 8am", value: "0 8 * * 1-5" },
-  { label: "Mondays 9am", value: "0 9 * * 1" },
-];
-
-const DELIVER_PRESETS = ["origin", "telegram", "local"];
-
-interface FormState {
-  name: string;
-  schedule: string;
-  prompt: string;
-  deliver: string;
-}
-
-const EMPTY_FORM: FormState = {
-  name: "",
-  schedule: "",
-  prompt: "",
-  deliver: "telegram",
-};
 
 export function CronTab() {
   const [jobs, setJobs] = useState<CronJob[] | null>(null);
@@ -45,6 +26,10 @@ export function CronTab() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
+  const [caps, setCaps] = useState<Capabilities>(NO_CAPABILITIES);
+  const [notice, setNotice] = useState<string | null>(null);
+  // catch_up as loaded into the form, so an untouched switch is not sent.
+  const [catchUpStart, setCatchUpStart] = useState<boolean | null>(null);
 
   const refresh = async () => {
     try {
@@ -57,9 +42,11 @@ export function CronTab() {
 
   useEffect(() => {
     refresh();
+    getCapabilities().then(setCaps);
   }, []);
 
   const act = async (id: string, action: "pause" | "resume" | "trigger") => {
+    setNotice(null);
     setBusy(id + "/" + action);
     try {
       await cronAction(id, action);
@@ -91,9 +78,29 @@ export function CronTab() {
     }
   };
 
+  const stop = async (job: CronJob) => {
+    const name = job.name ?? job.id;
+    tgHaptic("warning");
+    if (!window.confirm(CRON_TEXT.stopConfirm(name))) return;
+    setNotice(null);
+    setBusy(job.id + "/cancel");
+    try {
+      const r = await cronCancel(job.id);
+      setNotice(cancelNotice(r, name));
+      await refresh();
+      tgHaptic("success");
+    } catch (e) {
+      setError(String((e as Error).message ?? e));
+      tgHaptic("error");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const startCreate = () => {
     setEditId(null);
     setForm(EMPTY_FORM);
+    setCatchUpStart(null);
     setFormError(null);
     setShowForm(true);
     tgHapticImpact("light");
@@ -106,7 +113,9 @@ export function CronTab() {
       schedule: scheduleInput(job),
       prompt: String(job.prompt ?? ""),
       deliver: String(job.deliver ?? "telegram"),
+      catch_up: catchUpInitial(job),
     });
+    setCatchUpStart(catchUpInitial(job));
     setFormError(null);
     setShowForm(true);
     tgHapticImpact("light");
@@ -129,26 +138,34 @@ export function CronTab() {
       return;
     }
     setFormError(null);
+    setNotice(null);
     setBusy(editId ?? "new");
+    const catchUp = catchUpToSend(caps, catchUpStart, form.catch_up);
     try {
+      let warnings: string[] | undefined;
       if (editId) {
-        await cronUpdate(editId, {
+        const r = await cronUpdate(editId, {
           name: form.name.trim() || undefined,
           schedule: form.schedule.trim(),
           prompt: form.prompt.trim(),
           deliver: form.deliver,
+          ...(catchUp !== undefined ? { catch_up: catchUp } : {}),
         });
+        warnings = r?.warnings;
       } else {
         const payload: CronCreatePayload = {
           name: form.name.trim() || undefined,
           schedule: form.schedule.trim(),
           prompt: form.prompt.trim(),
           deliver: form.deliver,
+          ...(typeof catchUp === "boolean" ? { catch_up: catchUp } : {}),
         };
-        await cronCreate(payload);
+        warnings = (await cronCreate(payload))?.warnings;
       }
       await refresh();
-      tgHaptic("success");
+      const warned = warningsText(warnings);
+      setNotice(warned);
+      tgHaptic(warned ? "warning" : "success");
       cancelForm();
     } catch (e) {
       setFormError(String((e as Error).message ?? e));
@@ -176,13 +193,19 @@ export function CronTab() {
       </div>
 
       {error && <ErrorBox msg={error} />}
+      {notice && (
+        <div className="cron-notice" role="status">
+          {notice}
+        </div>
+      )}
 
       {showForm && (
         <CronForm
           form={form}
           editing={!!editId}
           formError={formError}
-          busy={busy === editId || busy === "new"}
+          busy={formBusy(busy, editId)}
+          showCatchUp={caps.cron_catch_up}
           onChange={setForm}
           onCancel={cancelForm}
           onSubmit={submitForm}
@@ -199,6 +222,15 @@ export function CronTab() {
         const nextRun = toEpochSeconds(j.next_run_at ?? j.next_run);
         const lastRun = toEpochSeconds(j.last_run_at ?? j.last_run);
         const failed = /fail|error/i.test(String(j.last_status ?? ""));
+        const running = j.running === true;
+        const stoppable = canStop(j, caps);
+        const badge = running
+          ? { cls: "badge running", text: CRON_TEXT.badgeRunning }
+          : !enabled
+            ? { cls: "badge paused", text: "paused" }
+            : failed
+              ? { cls: "badge failed", text: "last run failed" }
+              : { cls: "badge", text: "active" };
         return (
           <div key={j.id} className="cron-row">
             <div
@@ -209,11 +241,7 @@ export function CronTab() {
               }}
             >
               <span className="name">{j.name ?? j.id}</span>
-              <span
-                className={!enabled ? "badge paused" : failed ? "badge failed" : "badge"}
-              >
-                {!enabled ? "paused" : failed ? "last run failed" : "active"}
-              </span>
+              <span className={badge.cls}>{badge.text}</span>
             </div>
             <div className="meta">
               <span>{scheduleLabel(j)}</span>
@@ -226,6 +254,16 @@ export function CronTab() {
               </div>
             )}
             <div className="actions">
+              {stoppable && (
+                <button
+                  className="btn-secondary danger cron-stop"
+                  disabled={acting}
+                  aria-busy={busy === j.id + "/cancel"}
+                  onClick={() => stop(j)}
+                >
+                  {busy === j.id + "/cancel" ? CRON_TEXT.stopping : CRON_TEXT.stop}
+                </button>
+              )}
               {enabled ? (
                 <button
                   className="btn-secondary"
@@ -269,124 +307,5 @@ export function CronTab() {
         );
       })}
     </PullToRefresh>
-  );
-}
-
-function CronForm({
-  form,
-  editing,
-  formError,
-  busy,
-  onChange,
-  onCancel,
-  onSubmit,
-}: {
-  form: FormState;
-  editing: boolean;
-  formError: string | null;
-  busy: boolean;
-  onChange: (next: FormState) => void;
-  onCancel: () => void;
-  onSubmit: () => void;
-}) {
-  return (
-    <div className="cron-form">
-      <div className="form-title">
-        {editing ? "Edit cron job" : "New cron job"}
-      </div>
-
-      <label className="field">
-        <span>Name (optional)</span>
-        <input
-          type="text"
-          value={form.name}
-          onChange={(e) => onChange({ ...form, name: e.target.value })}
-          placeholder="e.g. Morning briefing"
-        />
-      </label>
-
-      <label className="field">
-        <span>Schedule</span>
-        <input
-          type="text"
-          value={form.schedule}
-          onChange={(e) => onChange({ ...form, schedule: e.target.value })}
-          placeholder="30m, 1h, 0 9 * * *, 2026-06-01T09:00"
-        />
-        <div className="chips" style={{ padding: "8px 0 0", marginLeft: 0 }}>
-          {SCHEDULE_PRESETS.map((p) => (
-            <button
-              key={p.value}
-              type="button"
-              className="chip"
-              onClick={() => {
-                onChange({ ...form, schedule: p.value });
-                tgHapticImpact("light");
-              }}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </label>
-
-      <label className="field">
-        <span>Prompt</span>
-        <textarea
-          value={form.prompt}
-          onChange={(e) => onChange({ ...form, prompt: e.target.value })}
-          rows={4}
-          placeholder="What should Hermes do when this fires?"
-        />
-      </label>
-
-      <label className="field">
-        <span>Deliver to</span>
-        <div className="filter-pills">
-          {DELIVER_PRESETS.map((d) => (
-            <button
-              key={d}
-              type="button"
-              data-active={form.deliver === d}
-              className="filter-pill"
-              onClick={() => {
-                onChange({ ...form, deliver: d });
-                tgHapticImpact("light");
-              }}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
-      </label>
-
-      {formError && (
-        <p
-          className="label"
-          style={{ marginTop: 8, color: "var(--tg-destructive)" }}
-        >
-          {formError}
-        </p>
-      )}
-
-      <div className="actions">
-        <button
-          type="button"
-          className="btn-secondary"
-          onClick={onCancel}
-          disabled={busy}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={onSubmit}
-          disabled={busy}
-        >
-          {busy ? (editing ? "Saving…" : "Creating…") : editing ? "Save" : "Create"}
-        </button>
-      </div>
-    </div>
   );
 }

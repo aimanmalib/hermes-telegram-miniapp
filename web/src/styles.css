@@ -371,51 +371,6 @@ button {
   font-size: 13px;
 }
 
-/* ---- Cron rows ------------------------------------------------------- */
-
-.cron-row {
-  background: var(--tg-section);
-  border-radius: var(--radius);
-  margin: 0 var(--space-4) var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.cron-row .name {
-  font-weight: 500;
-}
-
-.cron-row .meta {
-  font-size: 12px;
-  color: var(--tg-hint);
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-}
-
-.cron-row .actions {
-  display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
-.cron-row .badge {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--tg-accent) 15%, transparent);
-  color: var(--tg-accent);
-}
-
-.cron-row .badge.paused {
-  background: color-mix(in srgb, var(--tma-warn) 15%, transparent);
-  color: var(--tma-warn);
-}
-
 /* ---- Auth gate ------------------------------------------------------- */
 
 .auth-gate {
@@ -955,12 +910,9 @@ body[data-scheme="light"] {
   margin-top: var(--space-2);
 }
 
-.cron-row .actions {
-  flex-wrap: wrap;
-}
-
 .btn-secondary.danger {
-  color: var(--tg-destructive);
+  /* >= 4.5:1 in light and dark, still from the theme tokens */
+  color: color-mix(in srgb, var(--tg-destructive) 75%, var(--tg-text));
 }
 
 .btn-secondary.danger:active {
@@ -1011,7 +963,7 @@ body[data-scheme="light"] {
   height: 22px;
   appearance: none;
   -webkit-appearance: none;
-  background: var(--border);
+  background: var(--border, color-mix(in srgb, var(--tg-hint) 55%, transparent));
   border-radius: 11px;
   position: relative;
   transition: background 120ms ease;
@@ -1032,7 +984,7 @@ body[data-scheme="light"] {
 }
 
 .alerts-row.toggle input[type="checkbox"]:checked {
-  background: var(--accent, #3b82f6);
+  background: var(--accent, var(--tg-accent));
 }
 
 .alerts-row.toggle input[type="checkbox"]:checked::before {
@@ -1055,12 +1007,13 @@ body[data-scheme="light"] {
 .alerts-label {
   font-size: 14px;
   font-weight: 500;
-  color: var(--fg);
+  color: var(--fg, var(--tg-text));
 }
 
 .alerts-hint {
   font-size: 11px;
-  color: var(--fg-dim);
+  /* >= 4.5:1 both themes; --fg-dim is never set, so this follows Telegram's hint colour */
+  color: color-mix(in srgb, var(--fg-dim, var(--tg-hint)) 75%, var(--tg-text));
   line-height: 1.3;
 }
 
@@ -1160,10 +1113,4 @@ body[data-scheme="light"] {
   font-weight: 600;
   text-align: center;
   letter-spacing: 0.01em;
-}
-
-
-.cron-row .badge.failed {
-  background: color-mix(in srgb, var(--tg-destructive) 15%, transparent);
-  color: var(--tg-destructive);
 }

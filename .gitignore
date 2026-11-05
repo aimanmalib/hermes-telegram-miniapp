@@ -25,3 +25,12 @@ plugin/alerts.json
 plugin/alerts_state.json
 plugin/__pycache__/
 plugin/dashboard/__pycache__/
+
+# local working notes, kept outside the public repo
+/NEXT.md
+/02-DECISIONS.md
+/CLAUDE.md
+/CLAUDE.local.md
+/.claude/
+/PELAN-*.md
+/PASTE-*.md

@@ -5,6 +5,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Contract tests that install real Hermes releases and call the plugin through the Hermes dashboard app
+  (`tests/contract/`). The releases under test are listed in `compat/hermes-versions.json`; CI runs one
+  `hermes-contract` job per release (currently v0.22.4 and v0.23.0). Without Hermes installed the tests are skipped.
+
 ### Changed
 
 - The backend is split into one module per tab (`plugin/dashboard/routes_*.py`). Every read of Hermes internals

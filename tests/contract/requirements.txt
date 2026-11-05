@@ -1,0 +1,3 @@
+# Installed into the Hermes virtualenv for the contract tests. Hermes itself provides fastapi, httpx and
+# cryptography; pinning them here would override the versions Hermes was released with.
+pytest==9.1.1

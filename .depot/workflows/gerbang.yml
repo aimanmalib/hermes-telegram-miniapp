@@ -36,3 +36,46 @@ jobs:
       - run: npm run check:no-demo
       - run: npm run build:demo
       - run: npm audit --omit=dev --audit-level=high
+  # Tag list comes from compat/hermes-versions.json: testing a new Hermes release = one line there, no workflow edit.
+  hermes-versions:
+    runs-on: depot-ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tags: ${{ steps.v.outputs.tags }}
+      python: ${{ steps.v.outputs.python }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: |
+          python3 - >> "$GITHUB_OUTPUT" <<'PY'
+          import json
+          d = json.load(open("compat/hermes-versions.json"))
+          print("tags=" + json.dumps(d["uji"]))
+          print("python=" + d["python"])
+          PY
+  hermes-contract:
+    needs: hermes-versions
+    runs-on: depot-ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        hermes: ${{ fromJSON(needs.hermes-versions.outputs.tags) }}
+    env:
+      HERMES_DIR: ${{ runner.temp }}/hermes-agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ needs.hermes-versions.outputs.python }}
+      - run: python -m pip install uv==0.12.5
+      - name: Install Hermes ${{ matrix.hermes }} from its release tag (locked dependencies)
+        run: |
+          git clone --depth 1 --branch "${{ matrix.hermes }}" https://github.com/NousResearch/hermes-agent "$HERMES_DIR"
+          cd "$HERMES_DIR" && uv sync --frozen --no-dev --python "$(command -v python)"
+      - run: uv pip install --python "$HERMES_DIR/.venv/bin/python" -r tests/contract/requirements.txt
+      - name: Contract tests against Hermes ${{ matrix.hermes }}
+        env:
+          HERMES_CONTRACT_REQUIRED: "1"
+          HERMES_EXPECT_VERSION: ${{ matrix.hermes }}
+        run: '"$HERMES_DIR/.venv/bin/python" -m pytest tests/contract -o addopts= -q -rs'

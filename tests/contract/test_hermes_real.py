@@ -224,6 +224,36 @@ def test_cron_create_then_list(hermes):
     assert r.status_code == 200, r.text
     jobs = r.json()["jobs"]
     assert any(job.get("name") == "contract-test" for job in jobs), jobs
+    assert all(isinstance(job.get("running"), bool) for job in jobs), jobs
+
+
+def test_cron_stop_and_catch_up(hermes):
+    headers = _auth(hermes)
+    caps = hermes.client.get(f"{PREFIX}/health").json()["capabilities"]
+    r = hermes.client.post(
+        f"{PREFIX}/cron",
+        headers=headers,
+        json={"prompt": "contract stop test", "schedule": "every 1h", "name": "contract-stop", "catch_up": False},
+    )
+    assert r.status_code == 200, r.text
+    job = r.json()["job"]
+    if caps["cron_catch_up"]:
+        assert r.json()["warnings"] == [] and job.get("catch_up") is False, job
+    else:
+        assert r.json()["warnings"] == ["catch_up_unsupported"]
+
+    r = hermes.client.patch(f"{PREFIX}/cron/{job['id']}", headers=headers, json={"catch_up": None})
+    assert r.status_code == 200, r.text
+
+    r = hermes.client.post(f"{PREFIX}/cron/{job['id']}/cancel", headers=headers)
+    if caps["cron_cancel"]:
+        # Nothing is in flight in a fresh HERMES_HOME: a real call that stops nothing.
+        assert r.status_code == 200, r.text
+        assert r.json()["action"] == "idle"
+        assert hermes.client.post(f"{PREFIX}/cron/does-not-exist/cancel", headers=headers).status_code == 404
+    else:
+        assert r.status_code == 501 and r.json()["detail"]["code"] == "unsupported"
+    assert hermes.client.post(f"{PREFIX}/cron/{job['id']}/cancel").status_code == 401
 
 
 def test_logs_read_from_the_hermes_home(hermes):

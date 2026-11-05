@@ -16,6 +16,7 @@ EXPECTED_ROUTES = {
     ("GET", "/sessions"), ("GET", "/sessions/{session_id}/messages"),
     ("GET", "/cron"), ("POST", "/cron"), ("PATCH", "/cron/{job_id}"), ("DELETE", "/cron/{job_id}"),
     ("POST", "/cron/{job_id}/pause"), ("POST", "/cron/{job_id}/resume"), ("POST", "/cron/{job_id}/trigger"),
+    ("POST", "/cron/{job_id}/cancel"),
     ("GET", "/skills"), ("GET", "/skills/{skill_id}"), ("GET", "/memory"),
     ("GET", "/logs"), ("POST", "/command"),
     ("GET", "/alerts"), ("PATCH", "/alerts"), ("POST", "/alerts/test"),

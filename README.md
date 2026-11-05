@@ -206,9 +206,10 @@ All under `/api/plugins/telegram-app/`.
 | GET | `/usage?window=today\|week\|month\|all` | session | Token and cost totals, top sessions |
 | GET | `/sessions?limit=N` | session | Recent sessions |
 | GET | `/sessions/{id}/messages` | session | Messages of one session (trimmed for phones) |
-| GET, POST | `/cron` | session | List jobs, create an agent job |
-| PATCH, DELETE | `/cron/{id}` | session | Edit or delete a job |
+| GET, POST | `/cron` | session | List jobs (each with `running`), create an agent job (optional `catch_up`) |
+| PATCH, DELETE | `/cron/{id}` | session | Edit (including `catch_up`; `null` = Hermes default) or delete a job |
 | POST | `/cron/{id}/pause\|resume\|trigger` | session | Pause, resume, run now |
+| POST | `/cron/{id}/cancel` | session | Stop the run in flight; `501` with code `unsupported` on a Hermes without it |
 | GET | `/logs?file=&lines=&level=` | session | Tail a Hermes log |
 | GET | `/skills`, `/skills/{id}` | session | Skill list and `SKILL.md` text |
 | GET | `/memory` | session | `MEMORY.md` and `USER.md` |

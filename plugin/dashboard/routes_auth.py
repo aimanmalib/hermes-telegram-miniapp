@@ -30,12 +30,19 @@ def _client_key(request: Request) -> str:
 
 @router.get("/health")
 async def health():
-    """Public — no auth required. Used by reverse proxies / uptime checks."""
+    """Public — no auth required. Used by reverse proxies / uptime checks.
+
+    ``auth_mode`` says how the login route is reachable; ``capabilities`` lists
+    the optional Hermes features the Mini App may offer. No secrets.
+    """
     return {
         "ok": True,
         "plugin": "telegram-app",
         "version": settings.VERSION,
         "uptime_sec": settings.uptime_sec(),
+        "auth_mode": compat.auth_mode(),
+        "hermes_version": compat.hermes_version(),
+        "capabilities": compat.capabilities(),
     }
 
 

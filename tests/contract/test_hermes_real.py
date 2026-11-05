@@ -157,6 +157,24 @@ def test_health_is_public(hermes):
     assert body["ok"] is True and body["plugin"] == "telegram-app"
 
 
+def _release(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.lstrip("v").split("+")[0].split(".")[:3])
+
+
+def test_health_reports_login_path_release_and_features(hermes):
+    body = hermes.client.get(f"{PREFIX}/health").json()
+    # The token seam (v0.23.0+) is not used; login stays on the public-path set (docs/decisions/0005).
+    assert body["auth_mode"] == "legacy-public-paths"
+    assert body["hermes_version"] == hermes.ws.app.version
+    import cron.jobs as jobs
+
+    caps = body["capabilities"]
+    assert caps["cron_cancel"] == hasattr(jobs, "cancel_job_run")
+    if _release(hermes.ws.app.version) >= (0, 23, 0):
+        # Both features shipped in v0.23.0; a release without them is a regression to look at.
+        assert caps == {"cron_cancel": True, "cron_catch_up": True}
+
+
 def test_other_routes_need_the_dashboard_token(hermes):
     for route in ("/status", "/sessions", "/cron", "/logs"):
         assert hermes.client.get(f"{PREFIX}{route}").status_code == 401, route

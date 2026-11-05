@@ -81,7 +81,7 @@ Requirements and caveats from that check:
 
 - The dashboard must run in its default **loopback token mode** (bound to `127.0.0.1`). If you set `dashboard.public_url` or bind publicly, Hermes switches to its cookie/OAuth gate and this plugin's token login will not work.
 - `plugins.isolation: host` (plugins in a separate process) is not supported; the default `in_process` is.
-- The plugin relies on two private Hermes names, `_PUBLIC_API_PATHS` and `_SESSION_TOKEN` in `hermes_cli.web_server`, because Hermes has no public API for unauthenticated plugin routes. A Hermes release that renames them will break login. `GET /api/plugins/telegram-app/health` and the dashboard log line `telegram-app: registered public paths` show whether it still works.
+- The plugin relies on two private Hermes names, `_PUBLIC_API_PATHS` and `_SESSION_TOKEN` in `hermes_cli.web_server`, because Hermes has no public API for unauthenticated plugin routes. A Hermes release that renames them will break login. `GET /api/plugins/telegram-app/health` reports `"auth_mode": "legacy-public-paths"` while login works and `"unavailable"` when it does not; the dashboard log line `telegram-app: registered public paths` shows the same at startup. Hermes v0.23.0 added a bearer-token seam for plugin routes; it cannot replace this, for the reasons in [decision 0005](docs/decisions/0005-login-stays-on-public-paths.md).
 
 ## Setup
 
@@ -200,7 +200,7 @@ All under `/api/plugins/telegram-app/`.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/health` | public | Liveness and plugin version |
+| GET | `/health` | public | Liveness, plugin and Hermes versions, login path (`auth_mode`), optional Hermes features (`capabilities`) |
 | POST | `/auth/verify` | initData | Verify initData, return the session token |
 | GET | `/status` | session | System gauges, session and cron counts |
 | GET | `/usage?window=today\|week\|month\|all` | session | Token and cost totals, top sessions |

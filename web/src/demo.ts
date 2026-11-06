@@ -3,6 +3,7 @@
  * from a Hermes server. Loaded only when demo-gate.ts enables demo mode.
  */
 
+import { ApiError } from "./errors";
 import type {
   AlertsStatus,
   CronJob,
@@ -344,7 +345,7 @@ export async function handleDemoRequest(path: string, init: RequestInit = {}): P
   if (cronMatch) {
     const id = decodeURIComponent(cronMatch[1]);
     const job = cron().find((j) => j.id === id);
-    if (!job) throw new Error(`${path} 404: job not found`);
+    if (!job) throw new ApiError(path, 404, "job not found");
     const action = cronMatch[2];
     if (action === "cancel") {
       const cancelled = job.running === true;
@@ -376,5 +377,5 @@ export async function handleDemoRequest(path: string, init: RequestInit = {}): P
   }
   if (route === "/alerts/test") return { ok: true, sent: false, reason: "demo mode: nothing is sent" };
   if (route === "/command") return { ok: true, message_id: 0 };
-  throw new Error(`${path} 404: not available in demo mode`);
+  throw new ApiError(path, 404, "not available in demo mode");
 }

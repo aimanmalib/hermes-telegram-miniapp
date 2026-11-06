@@ -1,20 +1,16 @@
 import { useRef, useState } from "react";
 import { sendCommand } from "../api";
 import { SectionTitle, tgHaptic, tgHapticImpact } from "../components";
+import { errorText } from "../errors";
+import { t, tList } from "../i18n";
 import { formatRelative, truncate } from "../utils";
 
 const HISTORY_KEY = "hermes-tma:send-history-v1";
 const PRESETS_KEY = "hermes-tma:send-presets-v1";
 const HISTORY_MAX = 12;
 
-const DEFAULT_PRESETS: string[] = [
-  "Summarize today's sessions in 5 bullets",
-  "List my cron jobs with their next run times",
-  "What did I work on yesterday?",
-  "Tail the last 30 lines of errors.log and explain anything red",
-  "Disk + memory snapshot",
-  "Which cron jobs failed this week, and why?",
-];
+/** Starter presets in the current language (`send.preset.N` in the language files). */
+const defaultPresets = () => tList("send.preset");
 
 interface HistoryEntry {
   text: string;
@@ -47,9 +43,11 @@ export function SendTab() {
   const [history, setHistory] = useState<HistoryEntry[]>(() =>
     loadList<HistoryEntry[]>(HISTORY_KEY, []),
   );
-  const [presets, setPresets] = useState<string[]>(() =>
-    loadList<string[]>(PRESETS_KEY, DEFAULT_PRESETS),
+  // null = the user never edited the list, so it follows the app language.
+  const [custom, setCustom] = useState<string[] | null>(() =>
+    loadList<string[] | null>(PRESETS_KEY, null),
   );
+  const presets = custom ?? defaultPresets();
   const [editingPresets, setEditingPresets] = useState(false);
   const [newPreset, setNewPreset] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -68,7 +66,7 @@ export function SendTab() {
     setFeedback(null);
     try {
       await sendCommand(value);
-      setFeedback("Posted to your chat with the bot.");
+      setFeedback(t("send.posted"));
       tgHaptic("success");
       setText("");
       const newEntry: HistoryEntry = { text: value, ts: Date.now() / 1000 };
@@ -79,7 +77,7 @@ export function SendTab() {
       setHistory(next);
       saveList(HISTORY_KEY, next);
     } catch (e) {
-      setError(String((e as Error).message ?? e));
+      setError(errorText(e));
       tgHaptic("error");
     } finally {
       setBusy(false);
@@ -94,7 +92,7 @@ export function SendTab() {
       return;
     }
     const next = [...presets, v];
-    setPresets(next);
+    setCustom(next);
     saveList(PRESETS_KEY, next);
     setNewPreset("");
     tgHaptic("success");
@@ -102,14 +100,18 @@ export function SendTab() {
 
   const removePreset = (s: string) => {
     const next = presets.filter((p) => p !== s);
-    setPresets(next);
+    setCustom(next);
     saveList(PRESETS_KEY, next);
     tgHapticImpact("light");
   };
 
   const restoreDefaults = () => {
-    setPresets(DEFAULT_PRESETS);
-    saveList(PRESETS_KEY, DEFAULT_PRESETS);
+    setCustom(null);
+    try {
+      localStorage.removeItem(PRESETS_KEY);
+    } catch {
+      /* ignore private mode */
+    }
     tgHaptic("success");
   };
 
@@ -121,19 +123,17 @@ export function SendTab() {
 
   return (
     <>
-      <SectionTitle>Post to bot chat</SectionTitle>
+      <SectionTitle>{t("send.title")}</SectionTitle>
       <div className="compose">
         <p
           className="label"
           style={{ margin: "0 0 8px", color: "var(--tg-hint)" }}
         >
-          The bot posts this text into your chat with it. Telegram does not
-          deliver a bot&apos;s own messages back to the bot, so Hermes will not act
-          on it; use it to stage a prompt you then copy into the chat.
+          {t("send.explain")}
         </p>
         <textarea
           ref={textareaRef}
-          placeholder="e.g. summarize today's sessions"
+          placeholder={t("send.placeholder")}
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={5}
@@ -144,7 +144,7 @@ export function SendTab() {
             disabled={!text.trim() || busy}
             onClick={submit}
           >
-            {busy ? "Sending…" : "Send"}
+            {t(busy ? "send.sending" : "send.send")}
           </button>
         </div>
         {feedback && (
@@ -166,18 +166,18 @@ export function SendTab() {
       </div>
 
       <div className="section-title-row">
-        <SectionTitle>Quick presets</SectionTitle>
+        <SectionTitle>{t("send.presets")}</SectionTitle>
         <button
           type="button"
           className="ghost-btn"
           onClick={() => setEditingPresets((v) => !v)}
         >
-          {editingPresets ? "Done" : "Edit"}
+          {t(editingPresets ? "common.done" : "common.edit")}
         </button>
       </div>
       {presets.length === 0 && (
         <div className="empty" style={{ paddingTop: 0 }}>
-          No presets — add one below.
+          {t("send.noPresets")}
         </div>
       )}
       <div className="chips">
@@ -195,7 +195,7 @@ export function SendTab() {
               <button
                 type="button"
                 className="chip-x"
-                aria-label="Remove preset"
+                aria-label={t("send.removePreset")}
                 onClick={() => removePreset(p)}
               >
                 ×
@@ -207,7 +207,7 @@ export function SendTab() {
       {editingPresets && (
         <div className="compose" style={{ marginTop: 0 }}>
           <textarea
-            placeholder="Add a new preset…"
+            placeholder={t("send.newPreset")}
             value={newPreset}
             onChange={(e) => setNewPreset(e.target.value)}
             rows={2}
@@ -218,7 +218,7 @@ export function SendTab() {
               className="btn-secondary"
               onClick={restoreDefaults}
             >
-              Restore defaults
+              {t("send.restoreDefaults")}
             </button>
             <button
               type="button"
@@ -226,7 +226,7 @@ export function SendTab() {
               disabled={!newPreset.trim()}
               onClick={addPreset}
             >
-              Add
+              {t("common.add")}
             </button>
           </div>
         </div>
@@ -235,14 +235,14 @@ export function SendTab() {
       {history.length > 0 && (
         <>
           <div className="section-title-row">
-            <SectionTitle>Recent</SectionTitle>
+            <SectionTitle>{t("send.recent")}</SectionTitle>
             <button
               type="button"
               className="ghost-btn"
               onClick={clearHistory}
-              aria-label="Clear history"
+              aria-label={t("send.clearHistory")}
             >
-              Clear
+              {t("common.clear")}
             </button>
           </div>
           {history.map((h, i) => (

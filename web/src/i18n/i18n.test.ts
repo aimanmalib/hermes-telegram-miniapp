@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { DICTS, initLang, LANGS, langFromCode, pickLang, setLang, STORAGE_KEY, t, type Dict } from "./index";
+import { DICTS, initLang, LANGS, langFromCode, pickLang, setLang, STORAGE_KEY, t, tList, type Dict } from "./index";
 import { DEMO_BANNER } from "./demo-banner";
 import { formatRelative, formatUptime, formatWhen } from "../utils";
 
@@ -109,5 +109,24 @@ describe("t()", () => {
     expect(formatUptime(2 * 86400 + 3 * 3600)).toBe("2h 3j");
     initLang("en");
     expect(formatRelative(now - 3 * 3600)).toBe("3h ago");
+  });
+});
+
+describe("keys built at run time", () => {
+  it.each(LANGS)("%s has a label for every schedule chip and delivery target", async (lang) => {
+    const { SCHEDULE_PRESETS, DELIVER_PRESETS } = await import("../tabs/CronForm");
+    const dict = DICTS[lang] as Dict;
+    const keys = [
+      ...SCHEDULE_PRESETS.map((p) => `cron.preset.${p.label}`),
+      ...DELIVER_PRESETS.map((d) => `cron.deliver.${d}`),
+    ];
+    expect(keys.filter((k) => !dict[k])).toEqual([]);
+  });
+
+  it("reads numbered lists up to the first gap, the same length in every language", () => {
+    const lengths = LANGS.map((lang) => tList("send.preset", lang).length);
+    expect(lengths[0]).toBeGreaterThan(0);
+    expect(new Set(lengths).size).toBe(1);
+    expect(tList("no.such.list")).toEqual([]);
   });
 });

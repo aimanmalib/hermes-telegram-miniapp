@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getLogs, LogFile, LogLevel, LogsResponse } from "../api";
 import { ErrorBox, Loading, SectionTitle, tgHapticImpact } from "../components";
+import { errorText } from "../errors";
+import { t } from "../i18n";
 import { formatRelative } from "../utils";
 
 const FILES: LogFile[] = ["agent", "errors", "gateway"];
@@ -34,7 +36,7 @@ export function LogsTab() {
       const r = await getLogs(file, lineCount, level);
       setData(r);
     } catch (e) {
-      setError(String((e as Error).message ?? e));
+      setError(errorText(e));
     } finally {
       setLoading(false);
     }
@@ -71,7 +73,7 @@ export function LogsTab() {
   return (
     <>
       <div className="section-title-row">
-        <SectionTitle>Logs</SectionTitle>
+        <SectionTitle>{t("logs.title")}</SectionTitle>
         <div style={{ display: "flex", gap: 6, marginRight: "var(--space-4)" }}>
           <label className="toggle-pill">
             <input
@@ -79,7 +81,7 @@ export function LogsTab() {
               checked={autoRefresh}
               onChange={(e) => setAutoRefresh(e.target.checked)}
             />
-            <span>{autoRefresh ? "Live" : "Paused"}</span>
+            <span>{t(autoRefresh ? "logs.live" : "logs.paused")}</span>
           </label>
           <button
             type="button"
@@ -88,7 +90,7 @@ export function LogsTab() {
               tgHapticImpact("light");
               fetchOnce();
             }}
-            aria-label="Refresh logs now"
+            aria-label={t("logs.refreshAria")}
           >
             ↻
           </button>
@@ -97,7 +99,7 @@ export function LogsTab() {
 
       <div className="filter-bar">
         <FilterRow
-          label="File"
+          label={t("logs.file")}
           options={FILES}
           value={file}
           onChange={(v) => {
@@ -106,8 +108,9 @@ export function LogsTab() {
           }}
         />
         <FilterRow
-          label="Level"
+          label={t("logs.level")}
           options={LEVELS}
+          optionLabel={(v) => (v === "ALL" ? t("logs.levelAll") : v)}
           value={level}
           onChange={(v) => {
             setLevel(v);
@@ -115,7 +118,7 @@ export function LogsTab() {
           }}
         />
         <FilterRow
-          label="Lines"
+          label={t("logs.lines")}
           options={LINE_OPTIONS.map(String)}
           value={String(lineCount)}
           onChange={(v) => {
@@ -134,7 +137,7 @@ export function LogsTab() {
       >
         {!data && !error && <Loading />}
         {data && data.lines.length === 0 && !loading && (
-          <div className="log-empty">No log lines match the filter.</div>
+          <div className="log-empty">{t("logs.empty")}</div>
         )}
         {data &&
           data.lines.map((line, i) => {
@@ -149,9 +152,9 @@ export function LogsTab() {
 
       {data && (
         <div className="log-footer">
-          <span>{data.count} lines</span>
+          <span>{t("logs.lineCount", { count: data.count })}</span>
           {data.mtime > 0 && (
-            <span>file updated {formatRelative(data.mtime)}</span>
+            <span>{t("logs.fileUpdated", { when: formatRelative(data.mtime) })}</span>
           )}
           {loading && <span className="spinner-dot" />}
         </div>
@@ -163,11 +166,14 @@ export function LogsTab() {
 function FilterRow<T extends string>({
   label,
   options,
+  optionLabel = (v) => v,
   value,
   onChange,
 }: {
   label: string;
   options: readonly T[];
+  /** Shown text for an option; defaults to the option itself (file names, log levels). */
+  optionLabel?: (v: T) => string;
   value: T;
   onChange: (v: T) => void;
 }) {
@@ -183,7 +189,7 @@ function FilterRow<T extends string>({
             className="filter-pill"
             onClick={() => onChange(opt)}
           >
-            {opt}
+            {optionLabel(opt)}
           </button>
         ))}
       </div>

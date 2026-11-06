@@ -113,3 +113,13 @@ export function fmtNumber(n: number, opts?: Intl.NumberFormatOptions, lang: Lang
 export function fmtDate(ms: number, lang: Lang = current): string {
   return new Intl.DateTimeFormat(locale(lang), { dateStyle: "medium" }).format(ms);
 }
+
+/** A list kept as numbered keys (`prefix.1`, `prefix.2`, …) up to the first gap. */
+export function tList(prefix: string, lang: Lang = current): string[] {
+  const out: string[] = [];
+  for (let i = 1; ; i++) {
+    const text = lookup(lang, `${prefix}.${i}`);
+    if (text === undefined) return out;
+    out.push(text);
+  }
+}

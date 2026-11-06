@@ -20,6 +20,7 @@
 
 import { getInitData } from "./telegram";
 import { DEMO_ENABLED, demoRequest, DEMO_USER } from "./demo-gate";
+import { apiErrorFrom } from "./errors";
 
 const API_BASE = "/api/plugins/telegram-app";
 
@@ -79,10 +80,7 @@ export async function loginWithInitData(initData?: string): Promise<AuthResponse
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ init_data: data }),
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`auth/verify ${res.status}: ${text}`);
-  }
+  if (!res.ok) throw await apiErrorFrom("auth/verify", res);
   const body: AuthResponse = await res.json();
   if (body.ok && body.session_token) {
     cachedToken = body.session_token;
@@ -114,10 +112,7 @@ export async function api<T = unknown>(
       res = await rawFetch(path, init);
     }
   }
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`${path} ${res.status}: ${text}`);
-  }
+  if (!res.ok) throw await apiErrorFrom(path, res);
   // Some endpoints return 204
   const ct = res.headers.get("content-type") ?? "";
   if (!ct.includes("application/json")) {

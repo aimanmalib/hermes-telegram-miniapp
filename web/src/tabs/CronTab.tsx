@@ -16,6 +16,7 @@ import { t } from "../i18n";
 import { cancelNotice, canStop, catchUpInitial, catchUpToSend, formBusy, warningsText } from "../cron";
 import { CronForm, EMPTY_FORM, FormState } from "./CronForm";
 import "../cron.css";
+import { errorText } from "../errors";
 import { formatRelative, formatWhen, scheduleInput, scheduleLabel, toEpochSeconds, truncate } from "../utils";
 import { ErrorBox, Loading, PullToRefresh, SectionTitle, tgHaptic, tgHapticImpact } from "../components";
 
@@ -37,7 +38,7 @@ export function CronTab() {
       const r = await getCron();
       setJobs(r.jobs);
     } catch (e) {
-      setError(String((e as Error).message ?? e));
+      setError(errorText(e));
     }
   };
 
@@ -54,7 +55,7 @@ export function CronTab() {
       await refresh();
       tgHaptic("success");
     } catch (e) {
-      setError(String((e as Error).message ?? e));
+      setError(errorText(e));
       tgHaptic("error");
     } finally {
       setBusy(null);
@@ -62,9 +63,7 @@ export function CronTab() {
   };
 
   const remove = async (job: CronJob) => {
-    const ok = window.confirm(
-      `Delete cron job "${job.name ?? job.id}"? This is permanent.`,
-    );
+    const ok = window.confirm(t("cron.deleteConfirm", { name: job.name ?? job.id }));
     if (!ok) return;
     setBusy(job.id + "/delete");
     try {
@@ -72,7 +71,7 @@ export function CronTab() {
       await refresh();
       tgHaptic("success");
     } catch (e) {
-      setError(String((e as Error).message ?? e));
+      setError(errorText(e));
       tgHaptic("error");
     } finally {
       setBusy(null);
@@ -91,7 +90,7 @@ export function CronTab() {
       await refresh();
       tgHaptic("success");
     } catch (e) {
-      setError(String((e as Error).message ?? e));
+      setError(errorText(e));
       tgHaptic("error");
     } finally {
       setBusy(null);
@@ -131,11 +130,11 @@ export function CronTab() {
 
   const submitForm = async () => {
     if (!form.schedule.trim()) {
-      setFormError("Schedule is required (e.g. 30m, 0 9 * * *)");
+      setFormError(t("cron.scheduleRequired"));
       return;
     }
     if (!form.prompt.trim()) {
-      setFormError("Prompt is required");
+      setFormError(t("cron.promptRequired"));
       return;
     }
     setFormError(null);
@@ -169,7 +168,7 @@ export function CronTab() {
       tgHaptic(warned ? "warning" : "success");
       cancelForm();
     } catch (e) {
-      setFormError(String((e as Error).message ?? e));
+      setFormError(errorText(e));
       tgHaptic("error");
     } finally {
       setBusy(null);
@@ -182,14 +181,14 @@ export function CronTab() {
   return (
     <PullToRefresh onRefresh={refresh}>
       <div className="section-title-row">
-        <SectionTitle>Scheduled jobs</SectionTitle>
+        <SectionTitle>{t("cron.title")}</SectionTitle>
         <button
           type="button"
           className="ghost-btn"
           onClick={startCreate}
-          aria-label="Create cron job"
+          aria-label={t("cron.newAria")}
         >
-          + New
+          {t("cron.new")}
         </button>
       </div>
 
@@ -214,7 +213,7 @@ export function CronTab() {
       )}
 
       {jobs.length === 0 && (
-        <div className="empty">No cron jobs scheduled. Tap “+ New”.</div>
+        <div className="empty">{t("cron.empty")}</div>
       )}
 
       {jobs.map((j) => {
@@ -228,10 +227,10 @@ export function CronTab() {
         const badge = running
           ? { cls: "badge running", text: t("cron.badgeRunning") }
           : !enabled
-            ? { cls: "badge paused", text: "paused" }
+            ? { cls: "badge paused", text: t("cron.badgePaused") }
             : failed
-              ? { cls: "badge failed", text: "last run failed" }
-              : { cls: "badge", text: "active" };
+              ? { cls: "badge failed", text: t("cron.badgeFailed") }
+              : { cls: "badge", text: t("cron.badgeActive") };
         return (
           <div key={j.id} className="cron-row">
             <div
@@ -246,8 +245,8 @@ export function CronTab() {
             </div>
             <div className="meta">
               <span>{scheduleLabel(j)}</span>
-              {enabled && nextRun && <span>next {formatWhen(nextRun)}</span>}
-              {lastRun && <span>last {formatRelative(lastRun)}</span>}
+              {enabled && nextRun && <span>{t("cron.next", { when: formatWhen(nextRun) })}</span>}
+              {lastRun && <span>{t("cron.last", { when: formatRelative(lastRun) })}</span>}
             </div>
             {j.prompt && (
               <div className="item-preview" style={{ marginTop: 4 }}>
@@ -271,7 +270,7 @@ export function CronTab() {
                   disabled={acting}
                   onClick={() => act(j.id, "pause")}
                 >
-                  Pause
+                  {t("cron.pause")}
                 </button>
               ) : (
                 <button
@@ -279,7 +278,7 @@ export function CronTab() {
                   disabled={acting}
                   onClick={() => act(j.id, "resume")}
                 >
-                  Resume
+                  {t("cron.resume")}
                 </button>
               )}
               <button
@@ -287,21 +286,21 @@ export function CronTab() {
                 disabled={acting}
                 onClick={() => act(j.id, "trigger")}
               >
-                Run now
+                {t("cron.runNow")}
               </button>
               <button
                 className="btn-secondary"
                 disabled={acting}
                 onClick={() => startEdit(j)}
               >
-                Edit
+                {t("common.edit")}
               </button>
               <button
                 className="btn-secondary danger"
                 disabled={acting}
                 onClick={() => remove(j)}
               >
-                Delete
+                {t("common.delete")}
               </button>
             </div>
           </div>

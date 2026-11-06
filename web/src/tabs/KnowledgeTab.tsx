@@ -8,6 +8,8 @@ import {
   SkillRow,
 } from "../api";
 import { ErrorBox, Loading, SectionTitle, tgHapticImpact } from "../components";
+import { errorText } from "../errors";
+import { fmtNumber, t } from "../i18n";
 import { formatRelative, truncate } from "../utils";
 
 type Section = "skills" | "memory";
@@ -17,7 +19,7 @@ export function KnowledgeTab() {
   return (
     <>
       <div className="section-title-row">
-        <SectionTitle>Knowledge</SectionTitle>
+        <SectionTitle>{t("knowledge.title")}</SectionTitle>
         <div style={{ display: "flex", gap: 4, marginRight: "var(--space-4)" }}>
           <button
             type="button"
@@ -28,7 +30,7 @@ export function KnowledgeTab() {
               tgHapticImpact("light");
             }}
           >
-            Skills
+            {t("knowledge.skills")}
           </button>
           <button
             type="button"
@@ -39,7 +41,7 @@ export function KnowledgeTab() {
               tgHapticImpact("light");
             }}
           >
-            Memory
+            {t("knowledge.memory")}
           </button>
         </div>
       </div>
@@ -64,7 +66,7 @@ function SkillsList() {
         const r = await getSkills();
         if (!cancelled) setRows(r.skills);
       } catch (e) {
-        if (!cancelled) setError(String((e as Error).message ?? e));
+        if (!cancelled) setError(errorText(e));
       }
     })();
     return () => {
@@ -85,12 +87,13 @@ function SkillsList() {
       : rows;
     const map = new Map<string, SkillRow[]>();
     for (const s of filtered) {
-      const cat = s.category ?? "other";
+      const cat = s.category ?? "";
       const bucket = map.get(cat) ?? [];
       bucket.push(s);
       map.set(cat, bucket);
     }
-    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+    // Uncategorised ("") last; its heading is translated at render time.
+    return Array.from(map.entries()).sort(([a], [b]) => (!a ? 1 : !b ? -1 : a.localeCompare(b)));
   }, [rows, filter]);
 
   if (error) return <ErrorBox msg={error} />;
@@ -103,13 +106,13 @@ function SkillsList() {
         <input
           className="filter-input"
           type="search"
-          placeholder={`Search ${rows.length} skill${rows.length === 1 ? "" : "s"}…`}
+          placeholder={t("knowledge.search", { count: rows.length })}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
       </div>
       {grouped && grouped.length === 0 && (
-        <div className="empty">No skills match.</div>
+        <div className="empty">{t("knowledge.noMatch")}</div>
       )}
       {grouped &&
         grouped.map(([cat, items]) => (
@@ -121,9 +124,9 @@ function SkillsList() {
                 marginTop: "var(--space-3)",
               }}
             >
-              {cat}{" "}
+              {cat || t("knowledge.otherCategory")}{" "}
               <span style={{ color: "var(--tg-hint)", marginLeft: 6 }}>
-                {items.length}
+                {fmtNumber(items.length)}
               </span>
             </div>
             {items.map((s) => (
@@ -164,7 +167,7 @@ function SkillView({ skill, onBack }: { skill: SkillRow; onBack: () => void }) {
         const d = await getSkill(skill.id);
         if (!cancelled) setDetail(d);
       } catch (e) {
-        if (!cancelled) setError(String((e as Error).message ?? e));
+        if (!cancelled) setError(errorText(e));
       }
     })();
     return () => {
@@ -203,7 +206,7 @@ function SkillView({ skill, onBack }: { skill: SkillRow; onBack: () => void }) {
             onBack();
           }}
         >
-          ← Back
+          {t("common.backArrow")}
         </button>
         <div className="detail-title" title={skill.name}>
           {skill.name}
@@ -232,7 +235,7 @@ function MemoryView() {
         const d = await getMemory();
         if (!cancelled) setData(d);
       } catch (e) {
-        if (!cancelled) setError(String((e as Error).message ?? e));
+        if (!cancelled) setError(errorText(e));
       }
     })();
     return () => {
@@ -245,8 +248,8 @@ function MemoryView() {
 
   return (
     <>
-      <MemoryBlock label="Memory (MEMORY.md)" file={data.files.memory} />
-      <MemoryBlock label="User profile (USER.md)" file={data.files.user} />
+      <MemoryBlock label={t("knowledge.memoryFile")} file={data.files.memory} />
+      <MemoryBlock label={t("knowledge.userFile")} file={data.files.user} />
     </>
   );
 }
@@ -266,16 +269,16 @@ function MemoryBlock({
       >
         {label}{" "}
         <span style={{ color: "var(--tg-hint)", marginLeft: 6 }}>
-          {file.exists ? `${file.size} bytes` : "missing"}
+          {file.exists ? t("knowledge.bytes", { count: file.size }) : t("knowledge.missing")}
           {file.mtime ? ` · ${formatRelative(file.mtime)}` : ""}
         </span>
       </div>
       {!file.exists ? (
         <div className="empty" style={{ paddingTop: 0 }}>
-          File not present.
+          {t("knowledge.notPresent")}
         </div>
       ) : (
-        <pre className="md-pre">{file.content || "(empty)"}</pre>
+        <pre className="md-pre">{file.content || t("knowledge.emptyFile")}</pre>
       )}
     </div>
   );

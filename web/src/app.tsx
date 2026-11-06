@@ -12,6 +12,7 @@ import { DEMO_ENABLED } from "./demo-gate";
 import { initLang, t } from "./i18n";
 import { useLang } from "./i18n/useLang";
 import { demoBannerText } from "./i18n/demo-banner";
+import { errorText } from "./errors";
 
 type Tab = "status" | "sessions" | "cron" | "logs" | "knowledge" | "send";
 
@@ -145,7 +146,7 @@ export function App() {
         }
       } catch (e) {
         if (cancelled) return;
-        setAuthReason(String((e as Error).message ?? e));
+        setAuthReason(errorText(e));
         setAuthState("fail");
       }
     })();

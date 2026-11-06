@@ -3,6 +3,7 @@ import { getSessionMessages, SessionMessage } from "../api";
 import { formatRelative } from "../utils";
 import { ErrorBox, Loading, tgHapticImpact } from "../components";
 import { t } from "../i18n";
+import { errorText } from "../errors";
 
 export function SessionDetail({
   sessionId,
@@ -24,7 +25,7 @@ export function SessionDetail({
         const r = await getSessionMessages(sessionId, 200);
         if (!cancelled) setMessages(r.messages);
       } catch (e) {
-        if (!cancelled) setError(String((e as Error).message ?? e));
+        if (!cancelled) setError(errorText(e));
       }
     })();
     return () => {

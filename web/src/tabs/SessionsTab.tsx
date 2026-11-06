@@ -9,6 +9,7 @@ import {
   tgHapticImpact,
 } from "../components";
 import { t } from "../i18n";
+import { errorText } from "../errors";
 
 export function SessionsTab({
   onOpen,
@@ -24,7 +25,7 @@ export function SessionsTab({
       setRows(r.sessions);
       setError(null);
     } catch (e) {
-      setError(String((e as Error).message ?? e));
+      setError(errorText(e));
     }
   }, []);
 

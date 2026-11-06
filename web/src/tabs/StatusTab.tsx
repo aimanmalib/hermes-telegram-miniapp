@@ -20,6 +20,7 @@ import {
 } from "../utils";
 import { ErrorBox, LangSwitch, Loading, SectionTitle, tgHapticImpact, ToggleRow } from "../components";
 import { fmtNumber, t } from "../i18n";
+import { errorText } from "../errors";
 
 const WINDOWS: UsageWindow[] = ["today", "week", "month", "all"];
 
@@ -42,7 +43,7 @@ export function StatusTab({
         const s = await getStatus();
         if (!cancelled) setData(s);
       } catch (e) {
-        if (!cancelled) setError(String((e as Error).message ?? e));
+        if (!cancelled) setError(errorText(e));
       }
     };
     tick();
@@ -61,7 +62,7 @@ export function StatusTab({
         const u = await getUsage(window, 5);
         if (!cancelled) setUsage(u);
       } catch (e) {
-        if (!cancelled) setUsageError(String((e as Error).message ?? e));
+        if (!cancelled) setUsageError(errorText(e));
       }
     };
     tick();
@@ -242,7 +243,7 @@ function AlertsCard() {
       setCostInput(String(s.settings.cost_daily_usd));
       setErr(null);
     } catch (e) {
-      setErr(String((e as Error).message ?? e));
+      setErr(errorText(e));
     }
   };
 
@@ -258,7 +259,7 @@ function AlertsCard() {
       const s = await updateAlerts({ [key]: value } as Partial<AlertsSettings>);
       setStatus(s);
     } catch (e) {
-      setErr(String((e as Error).message ?? e));
+      setErr(errorText(e));
     } finally {
       setBusy(null);
     }
@@ -276,7 +277,7 @@ function AlertsCard() {
       const s = await updateAlerts({ cost_daily_usd: n });
       setStatus(s);
     } catch (e) {
-      setErr(String((e as Error).message ?? e));
+      setErr(errorText(e));
     } finally {
       setBusy(null);
     }
@@ -292,7 +293,7 @@ function AlertsCard() {
         r.sent ? t("alerts.testSent") : t("alerts.testFailed", { reason: r.reason ?? t("common.unknown") }),
       );
     } catch (e) {
-      setTestMsg(t("alerts.testFailed", { reason: String((e as Error).message ?? e) }));
+      setTestMsg(t("alerts.testFailed", { reason: errorText(e) }));
     } finally {
       setBusy(null);
     }

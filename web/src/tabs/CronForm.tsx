@@ -1,17 +1,18 @@
 import { tgHapticImpact, ToggleRow } from "../components";
 import { t } from "../i18n";
 
+/** Schedule chips: `label` is a key under `cron.preset.*` in the language files. */
 export const SCHEDULE_PRESETS: { label: string; value: string }[] = [
-  { label: "Every 30m", value: "30m" },
-  { label: "Hourly", value: "1h" },
-  { label: "Every 6h", value: "6h" },
-  { label: "Daily 9am", value: "0 9 * * *" },
-  { label: "Daily 9pm", value: "0 21 * * *" },
-  { label: "Weekdays 8am", value: "0 8 * * 1-5" },
-  { label: "Mondays 9am", value: "0 9 * * 1" },
+  { label: "every30m", value: "30m" },
+  { label: "hourly", value: "1h" },
+  { label: "every6h", value: "6h" },
+  { label: "daily9am", value: "0 9 * * *" },
+  { label: "daily9pm", value: "0 21 * * *" },
+  { label: "weekdays8am", value: "0 8 * * 1-5" },
+  { label: "mondays9am", value: "0 9 * * 1" },
 ];
 
-const DELIVER_PRESETS = ["origin", "telegram", "local"];
+export const DELIVER_PRESETS = ["origin", "telegram", "local"];
 
 export interface FormState {
   name: string;
@@ -53,26 +54,26 @@ export function CronForm({
   return (
     <div className="cron-form">
       <div className="form-title">
-        {editing ? "Edit cron job" : "New cron job"}
+        {editing ? t("cron.form.editTitle") : t("cron.form.newTitle")}
       </div>
 
       <label className="field">
-        <span>Name (optional)</span>
+        <span>{t("cron.form.name")}</span>
         <input
           type="text"
           value={form.name}
           onChange={(e) => onChange({ ...form, name: e.target.value })}
-          placeholder="e.g. Morning briefing"
+          placeholder={t("cron.form.namePlaceholder")}
         />
       </label>
 
       <label className="field">
-        <span>Schedule</span>
+        <span>{t("cron.form.schedule")}</span>
         <input
           type="text"
           value={form.schedule}
           onChange={(e) => onChange({ ...form, schedule: e.target.value })}
-          placeholder="30m, 1h, 0 9 * * *, 2026-06-01T09:00"
+          placeholder={t("cron.form.schedulePlaceholder")}
         />
         <div className="chips" style={{ padding: "8px 0 0", marginLeft: 0 }}>
           {SCHEDULE_PRESETS.map((p) => (
@@ -85,24 +86,24 @@ export function CronForm({
                 tgHapticImpact("light");
               }}
             >
-              {p.label}
+              {t(`cron.preset.${p.label}`)}
             </button>
           ))}
         </div>
       </label>
 
       <label className="field">
-        <span>Prompt</span>
+        <span>{t("cron.form.prompt")}</span>
         <textarea
           value={form.prompt}
           onChange={(e) => onChange({ ...form, prompt: e.target.value })}
           rows={4}
-          placeholder="What should Hermes do when this fires?"
+          placeholder={t("cron.form.promptPlaceholder")}
         />
       </label>
 
       <label className="field">
-        <span>Deliver to</span>
+        <span>{t("cron.form.deliver")}</span>
         <div className="filter-pills">
           {DELIVER_PRESETS.map((d) => (
             <button
@@ -115,7 +116,7 @@ export function CronForm({
                 tgHapticImpact("light");
               }}
             >
-              {d}
+              {t(`cron.deliver.${d}`)}
             </button>
           ))}
         </div>
@@ -156,7 +157,7 @@ export function CronForm({
           onClick={onCancel}
           disabled={busy}
         >
-          Cancel
+          {t("common.cancel")}
         </button>
         <button
           type="button"
@@ -164,7 +165,7 @@ export function CronForm({
           onClick={onSubmit}
           disabled={busy}
         >
-          {busy ? (editing ? "Saving…" : "Creating…") : editing ? "Save" : "Create"}
+          {t(busy ? (editing ? "cron.form.saving" : "cron.form.creating") : editing ? "cron.form.save" : "cron.form.create")}
         </button>
       </div>
     </div>

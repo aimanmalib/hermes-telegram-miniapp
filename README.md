@@ -17,17 +17,18 @@ It ships as a Hermes **dashboard plugin** (backend routes under `/api/plugins/te
   </tr>
 </table>
 
-<sub>Screenshots use the built-in <a href="#demo-mode">demo mode</a> (sample data, iPhone 13 in WebKit, Telegram-style day and night palettes). More in <a href="docs/screenshots/">docs/screenshots</a>.</sub>
+<sub>Screenshots use the built-in <a href="#demo-mode">demo mode</a> (sample data, iPhone 13 in WebKit, Telegram-style day and night palettes). More in <a href="docs/screenshots/">docs/screenshots</a>, including the <a href="docs/screenshots/cron-ms-light.png">Malay UI</a>.</sub>
 
 ## Features
 
 - **Status**: CPU, memory, disk, load and uptime; session and cron counts; token and cost totals for today, 7 days, 30 days or all time, with the most expensive sessions.
 - **Push alerts** (configured from the Status tab): a Telegram DM when a cron run fails, when `errors.log` gets new errors (throttled, off by default) or when the day's estimated spend crosses a threshold.
 - **Sessions**: recent sessions with source, message count, tokens and cost; open one to read its messages.
-- **Cron**: create, edit, pause, resume, run now and delete agent cron jobs. Failed last runs are flagged.
+- **Cron**: create, edit, pause, resume, run now and delete agent cron jobs. Failed last runs are flagged. On Hermes v0.23.0 or later, stop a job that is running and choose per job whether missed runs are caught up ("Run missed jobs").
 - **Logs**: tail `agent.log`, `errors.log` or `gateway.log`, filtered by level, with live refresh.
 - **Brain**: search installed skills and read `SKILL.md`, read the agent's `MEMORY.md` and `USER.md`.
 - **Post to bot chat**: have the bot post a message into your DM. See [limitations](#known-limitations): Hermes does not act on it.
+- **English and Malay.** The app uses your Telegram language when it is Malay and English otherwise; an EN | BM switch at the bottom of the Status tab overrides it. Adding a language is one JSON file in `web/src/i18n/`.
 - Follows your Telegram light or dark theme, uses Telegram haptics.
 
 ## How it works
@@ -70,14 +71,17 @@ This panel controls an AI agent, so the login path is strict. The full review, w
 
 ## Compatibility
 
-Checked against Hermes Agent commit [`81a5543`](https://github.com/NousResearch/hermes-agent/commit/81a55437f3f31a9f12a30c53b6c5d49d420898aa) (tag `v0.22.4+canary.20261022T070155Z`, 21 Oct 2026) **by reading its source**, not by running it. Verified there:
+**Tested by running Hermes v0.22.4 and v0.23.0 in CI.** For each release listed in [`compat/hermes-versions.json`](compat/hermes-versions.json), the `hermes-contract` job installs that Hermes, links the plugin into a temporary Hermes home with synthetic credentials, and calls `/health`, login, status, sessions, cron (including stop and catch-up) and logs through the real dashboard app (`tests/contract/`). The plugin declares `requires_hermes: ">=0.22.4"`.
+
+What the plugin uses from Hermes:
 
 - Dashboard plugins are discovered at `~/.hermes/plugins/<name>/dashboard/manifest.json`; the `api` file is imported and its `router` mounted at `/api/plugins/<name>/`.
 - User plugins' backends load only when the plugin name is in `plugins.enabled` (Hermes security change, see setup).
 - The session header is `X-Hermes-Session-Token`; `/api/*` is gated except for paths in `hermes_cli.web_server._PUBLIC_API_PATHS`.
-- Data sources the endpoints use: `hermes_state.SessionDB` (`list_sessions_rich`, `session_count`, `get_messages`), `cron.jobs` (`list_jobs`, `create_job`, `update_job`, `remove_job`, `pause_job`, `resume_job`, `trigger_job`), and `~/.hermes/logs/{agent,errors,gateway}.log`.
+- Data sources the endpoints use: `hermes_state.SessionDB` (`list_sessions_rich`, `session_count`, `get_messages`), `cron.jobs` (`list_jobs`, `create_job`, `update_job`, `remove_job`, `pause_job`, `resume_job`, `trigger_job`, and `cancel_job_run` when present), and `~/.hermes/logs/{agent,errors,gateway}.log`.
+- Optional features are detected by probing Hermes, not by version: `GET /api/plugins/telegram-app/health` lists them under `capabilities` (`cron_cancel`, `cron_catch_up`), and the app hides Stop and "Run missed jobs" when they are missing.
 
-Requirements and caveats from that check:
+Requirements and caveats:
 
 - The dashboard must run in its default **loopback token mode** (bound to `127.0.0.1`). If you set `dashboard.public_url` or bind publicly, Hermes switches to its cookie/OAuth gate and this plugin's token login will not work.
 - `plugins.isolation: host` (plugins in a separate process) is not supported; the default `in_process` is.
@@ -172,7 +176,7 @@ cd web
 npm ci
 npm run build:demo        # writes ../dist-demo/ (never ../dist/)
 python3 -m http.server 3392 --bind 127.0.0.1 --directory ../dist-demo
-# open http://127.0.0.1:3392/?theme=light  (or ?theme=dark)
+# open http://127.0.0.1:3392/?theme=light  (or ?theme=dark; add &lang=ms for Malay)
 ```
 
 On the Vite dev server, `npm run dev` and open `/?demo=1`. A normal `npm run build` compiles demo mode out completely; `npm run check:no-demo` (run in CI) fails if any demo code reaches `dist/`. The README screenshots are made with `scripts/screenshots.py` from the demo build.
@@ -241,7 +245,8 @@ The evidence that it works is meant to be checkable:
 
 - The test suite, run with `python -m pytest` and `cd web && npm test`.
 - CI on Python 3.11 and 3.12, and Node 22 for every pull request.
-- 2 tagged releases, with notes in [CHANGELOG.md](CHANGELOG.md).
+- Contract tests in CI that install real Hermes v0.22.4 and v0.23.0 and call the plugin through the Hermes dashboard app.
+- 3 tagged releases, with notes in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

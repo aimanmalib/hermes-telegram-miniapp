@@ -5,18 +5,43 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-06
+
+Tested by running Hermes v0.22.4 and v0.23.0 in CI. `requires_hermes` stays `>=0.22.4`.
+
 ### Added
 
+- **Stop a running cron job.** A job that is running shows a "running" badge and, on Hermes v0.23.0 or later, a
+  Stop button with a confirmation. The backend route is `POST /cron/{id}/cancel`; on older Hermes it answers `501`
+  with code `unsupported` and the button is hidden.
+- **"Run missed jobs" per job** (`catch_up`). The job form shows the switch when Hermes stores the setting per job.
+  It is sent only when changed, so saving a job never pins the global default. On a Hermes without it the field is
+  dropped and the response carries a `catch_up_unsupported` warning.
+- Each job in `GET /cron` has a boolean `running`.
+- **English and Malay.** Every UI string lives in `web/src/i18n/{en,ms}.json`. The language is the saved choice,
+  then the Telegram `language_code`, then English; an EN | BM switch sits at the bottom of the Status tab. Dates,
+  numbers and relative times follow the language. No new package: a small `t()` helper does the lookup.
+- API errors are shown as a readable sentence in the current language, with the HTTP status and the backend's
+  detail. Sign-in refusals stay generic.
+- `GET /health` reports `auth_mode` (`legacy-public-paths` or `unavailable`, checked on each request),
+  `hermes_version` and `capabilities` (`cron_cancel`, `cron_catch_up`). Features are detected by probing Hermes,
+  not by version number.
 - Contract tests that install real Hermes releases and call the plugin through the Hermes dashboard app
   (`tests/contract/`). The releases under test are listed in `compat/hermes-versions.json`; CI runs one
   `hermes-contract` job per release (currently v0.22.4 and v0.23.0). Without Hermes installed the tests are skipped.
 
 ### Changed
 
+- Hermes v0.23.0 added a bearer-token seam for plugin routes. It was evaluated and not adopted for login, for the
+  reasons in [decision 0005](docs/decisions/0005-login-stays-on-public-paths.md). Login checks are unchanged.
 - The backend is split into one module per tab (`plugin/dashboard/routes_*.py`). Every read of Hermes internals
   (public paths, the dashboard session token, `get_secret`, the Hermes home directory) now lives in
   `plugin/dashboard/hermes_compat.py`, so a Hermes upgrade that renames one of them breaks a single file.
-  `plugin_api.py` only assembles the router. No change to endpoints or behaviour.
+  `plugin_api.py` only assembles the router.
+
+### Fixed
+
+- In the Cron tab, the new job form opened with its Cancel and Create buttons disabled.
 
 ## [0.3.0] - 2026-10-23
 

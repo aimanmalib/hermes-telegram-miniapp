@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="t">
+  <title id="t">Hermes Telegram Mini App</title>
+  <defs>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c1f26"/>
+      <stop offset="1" stop-color="#121418"/>
+    </linearGradient>
+  </defs>
+  <!-- ink tile shared with Codr and MyPII -->
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="url(#tile)"/>
+  <rect x="17" y="17" width="222" height="222" rx="55" fill="none" stroke="url(#rim)" stroke-width="2"/>
+  <!-- mark: a phone showing the agent's status panel, a live pulse over two gauge bars -->
+  <rect x="80" y="50" width="96" height="156" rx="22" fill="none" stroke="#f4f4f1" stroke-width="12"/>
+  <rect x="114" y="66" width="28" height="7" rx="3.5" fill="#f4f4f1" opacity=".55"/>
+  <polyline points="96,116 112,116 120,98 134,136 144,108 150,116 160,116" fill="none" stroke="#e8b04a"
+            stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="98" y="156" width="60" height="10" rx="5" fill="#f4f4f1" opacity=".55"/>
+  <rect x="98" y="176" width="38" height="10" rx="5" fill="#f4f4f1" opacity=".55"/>
+</svg>

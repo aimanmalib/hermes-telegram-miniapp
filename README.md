@@ -1,23 +1,32 @@
-# Hermes Telegram Mini App
+<p align="center"><img src="https://raw.githubusercontent.com/aimanmalib/hermes-telegram-miniapp/main/brand/logo-512.png" width="112" height="112" alt="Hermes Telegram Mini App"></p>
+
+<h1 align="center">Hermes Telegram Mini App</h1>
+
+<p align="center"><a href="https://github.com/aimanmalib/hermes-telegram-miniapp/actions/workflows/ci.yml"><img src="https://github.com/aimanmalib/hermes-telegram-miniapp/actions/workflows/ci.yml/badge.svg" alt="CI"></a> <a href="https://github.com/aimanmalib/hermes-telegram-miniapp/releases/latest"><img src="https://img.shields.io/github/v/release/aimanmalib/hermes-telegram-miniapp" alt="Latest release"></a> <a href="https://github.com/aimanmalib/hermes-telegram-miniapp/blob/main/LICENSE"><img src="https://img.shields.io/badge/licence-MIT-blue" alt="Licence: MIT"></a></p>
+
+<p align="center"><b>A phone control panel for Hermes Agent, inside Telegram.</b> · <i>Panel kawalan telefon untuk Hermes Agent, dalam Telegram.</i><br>
+<a href="#setup">setup</a> · <a href="#demo-mode">demo mode</a> · <a href="https://github.com/aimanmalib/hermes-telegram-miniapp/blob/main/SECURITY-REVIEW.md">security review</a> · <a href="https://github.com/aimanmalib/hermes-telegram-miniapp/blob/main/CHANGELOG.md">changelog</a> · Built in Malaysia by <a href="https://aimanmalib.com">Aiman Malib</a></p>
 
 A phone control panel for [Hermes Agent](https://github.com/NousResearch/hermes-agent) that opens inside Telegram: check the server, browse sessions, run and edit cron jobs, read logs and skills, all from your bot's menu button.
 
 It ships as a Hermes **dashboard plugin** (backend routes under `/api/plugins/telegram-app/`) plus a small React app served next to it. Nothing in the Hermes repository is patched or overlaid.
 
+[Bahasa Melayu ↓](#bahasa-melayu)
+
 <table>
   <tr>
-    <td><img src="docs/screenshots/status-light.png" width="260" alt="Status tab, light theme"></td>
-    <td><img src="docs/screenshots/cron-dark.png" width="260" alt="Cron tab, dark theme"></td>
-    <td><img src="docs/screenshots/sessions-light.png" width="260" alt="Sessions tab, light theme"></td>
+    <td><img src="https://raw.githubusercontent.com/aimanmalib/hermes-telegram-miniapp/main/docs/screenshots/status-light.png" width="260" alt="Status tab, light theme"></td>
+    <td><img src="https://raw.githubusercontent.com/aimanmalib/hermes-telegram-miniapp/main/docs/screenshots/cron-dark.png" width="260" alt="Cron tab, dark theme"></td>
+    <td><img src="https://raw.githubusercontent.com/aimanmalib/hermes-telegram-miniapp/main/docs/screenshots/sessions-light.png" width="260" alt="Sessions tab, light theme"></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/usage-dark.png" width="260" alt="Usage and top sessions by cost, dark theme"></td>
-    <td><img src="docs/screenshots/logs-light.png" width="260" alt="Logs tab, light theme"></td>
-    <td><img src="docs/screenshots/brain-dark.png" width="260" alt="Skills browser, dark theme"></td>
+    <td><img src="https://raw.githubusercontent.com/aimanmalib/hermes-telegram-miniapp/main/docs/screenshots/usage-dark.png" width="260" alt="Usage and top sessions by cost, dark theme"></td>
+    <td><img src="https://raw.githubusercontent.com/aimanmalib/hermes-telegram-miniapp/main/docs/screenshots/logs-light.png" width="260" alt="Logs tab, light theme"></td>
+    <td><img src="https://raw.githubusercontent.com/aimanmalib/hermes-telegram-miniapp/main/docs/screenshots/brain-dark.png" width="260" alt="Skills browser, dark theme"></td>
   </tr>
 </table>
 
-<sub>Screenshots use the built-in <a href="#demo-mode">demo mode</a> (sample data, iPhone 13 in WebKit, Telegram-style day and night palettes). More in <a href="docs/screenshots/">docs/screenshots</a>, including the <a href="docs/screenshots/cron-ms-light.png">Malay UI</a>.</sub>
+<sub>Screenshots use the built-in <a href="#demo-mode">demo mode</a> (sample data, iPhone 13 in WebKit, Telegram-style day and night palettes). More in <a href="https://github.com/aimanmalib/hermes-telegram-miniapp/tree/main/docs/screenshots/">docs/screenshots</a>, including the <a href="https://github.com/aimanmalib/hermes-telegram-miniapp/blob/main/docs/screenshots/cron-ms-light.png">Malay UI</a>.</sub>
 
 ## Features
 
@@ -248,17 +257,48 @@ The evidence that it works is meant to be checkable:
 - The test suite, run with `python -m pytest` and `cd web && npm test`.
 - CI on Python 3.11 and 3.12, and Node 22 for every pull request.
 - Contract tests in CI that install real Hermes v0.23.0 and call the plugin through the Hermes dashboard app.
-- 3 tagged releases, with notes in [CHANGELOG.md](CHANGELOG.md).
+- 7 tagged releases, with notes in [CHANGELOG.md](CHANGELOG.md).
 
-## License
+## Bahasa Melayu
 
-MIT, see [LICENSE](LICENSE). Security issues: see [SECURITY.md](SECURITY.md).
+Hermes Telegram Mini App ialah panel kawalan telefon untuk [Hermes Agent](https://github.com/NousResearch/hermes-agent) yang dibuka
+di dalam Telegram melalui butang menu bot anda. Ia dihantar sebagai **plugin dashboard** Hermes (laluan backend di bawah
+`/api/plugins/telegram-app/`) berserta aplikasi React kecil. Repo Hermes tidak ditampal atau ditindih.
+
+**Ciri utama:**
+- **Status:** CPU, memori, cakera, beban dan masa hidup pelayan; bilangan sesi dan cron; jumlah token dan kos untuk hari ini, 7 hari,
+  30 hari atau semua, berserta sesi paling mahal.
+- **Amaran tolak:** DM Telegram bila larian cron gagal, bila `errors.log` ada ralat baharu (dihadkan, mati secara lalai) atau bila
+  anggaran belanja hari itu melepasi had.
+- **Sesi, Cron, Log, Otak:** baca sesi dan mesejnya; cipta, sunting, jeda, sambung, jalankan sekarang dan padam kerja cron ejen
+  (henti larian dan pilihan "Run missed jobs" pada Hermes v0.23.0 ke atas); ekor `agent.log`, `errors.log` dan `gateway.log`;
+  cari kemahiran dan baca `SKILL.md`, `MEMORY.md` serta `USER.md`.
+- **Bahasa Inggeris dan Melayu**, ikut bahasa Telegram anda, dengan suis EN | BM. Tema cerah atau gelap ikut Telegram.
+
+**Keselamatan.** Log masuk menyemak tandatangan HMAC-SHA256 `initData` dengan token bot (sandaran Ed25519 dengan kunci awam
+Telegram), had umur `auth_date` (lalai 1 jam) dan senarai benar ID pengguna yang gagal-tertutup: tanpa `TELEGRAM_OWNER_ID` atau
+`TELEGRAM_ALLOWED_USERS`, semua log masuk ditolak. Proksi songsang patut menghantar **hanya** `/api/plugins/telegram-app/*`, kerana
+token sesi yang dipulangkan membuka seluruh API dashboard. Butiran penuh dalam [Security model](#security-model) dan
+[SECURITY-REVIEW.md](https://github.com/aimanmalib/hermes-telegram-miniapp/blob/main/SECURITY-REVIEW.md).
+
+**Pasang.** Perlu Hermes dengan dashboard (v0.23.0 ke atas, mod token loopback), bot dari @BotFather, ID pengguna Telegram anda,
+domain dengan HTTPS dan Node.js 22 (atau 20.19+).
+
+1. Tetapkan `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_OWNER_ID` dalam `~/.hermes/.env`, dan tambah `telegram-app` di bawah
+   `plugins.enabled` dalam `~/.hermes/config.yaml`.
+2. Klon repo ini dan jalankan `./scripts/install.sh` (bina aplikasi, salin ke `WEB_ROOT`, paut `plugin/` ke
+   `~/.hermes/plugins/telegram-app`).
+3. Sediakan proksi songsang (contoh Caddy di [Setup](#setup)) dan tetapkan butang menu bot dengan `setChatMenuButton`.
+4. Tekan butang menu dalam sembang dengan bot; tab Status patut memaparkan nombor semasa.
+
+[Mod demo](#demo-mode) memaparkan setiap tab dengan data contoh tanpa pelayan Hermes. Had yang diketahui: mesej "Post to bot chat"
+tidak sampai kepada Hermes, dan log masuk bergantung pada nama dalaman Hermes (lihat [Known limitations](#known-limitations)).
+
+## Licence
+
+MIT, see [LICENSE](LICENSE). Made by [Aiman Malib](https://aimanmalib.com) in Malaysia. Security issues: see [SECURITY.md](SECURITY.md).
 
 Inspired by [clawvader-tech/hermes-telegram-miniapp](https://github.com/clawvader-tech/hermes-telegram-miniapp), rebuilt as a plugin instead of an overlay on the Hermes web server.
-
----
-
-Built by [Sasa Teguh](https://sasateguh.com) · Malaysia
 
 ## Work with Sasa Teguh
 

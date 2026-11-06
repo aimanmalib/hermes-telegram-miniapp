@@ -5,6 +5,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **README layout.** A centred header with the project logo, CI, release and licence badges and a one-line summary in
+  English and Malay, a Malay section near the end, and absolute image links so the page renders the same anywhere. The
+  logo source is `brand/logo.svg`; `brand/jana-aset.py` renders `brand/logo-512.png` and `brand/logo-64.png`. No code change.
+
 ## [0.5.3] - 2026-11-06
 
 ### Fixed

@@ -215,6 +215,14 @@ def test_login_rejects_forged_and_unlisted_users(hermes):
         )
         assert r.status_code == 401
         assert "session_token" not in r.text
+    # No allowlist: Hermes answers 503 (provider error), not 401, and still no token.
+    with pytest.MonkeyPatch.context() as mp:
+        mp.delenv("TELEGRAM_OWNER_ID")
+        r = hermes.client.post(
+            f"{PREFIX}/auth/verify", json={"init_data": valid}, headers={"Authorization": f"Bearer {valid}"}
+        )
+        assert r.status_code == 503
+        assert "session_token" not in r.text
     # A valid bearer does not excuse the body: the route re-verifies it (403).
     r = hermes.client.post(
         f"{PREFIX}/auth/verify", json={"init_data": forged}, headers={"Authorization": f"Bearer {valid}"}

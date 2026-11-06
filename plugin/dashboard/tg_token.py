@@ -27,7 +27,10 @@ LOGIN_PATH = "/api/plugins/telegram-app/auth/verify"
 
 
 def verify_bearer(token: str) -> Optional[str]:
-    """``telegram:<user id>`` for valid, fresh, allowlisted ``initData``; None for anything else."""
+    """``telegram:<user id>`` for valid, fresh, allowlisted ``initData``; None for anything else.
+
+    Raises ``LoginNotConfigured`` (the seam answers 503) when the bot token or the allowlist is unset.
+    """
     if not token or len(token) > tg_auth.MAX_INIT_DATA_LEN or "hash=" not in token:
         return None  # not Telegram initData; other providers decide
     try:
@@ -39,6 +42,12 @@ def verify_bearer(token: str) -> Optional[str]:
             bot_id=settings.env("TELEGRAM_BOT_ID") or None,
         )
     except tg_auth.InitDataError as exc:
+        if exc.reason in ("bot_token_unset", "allowlist_unset"):
+            _log.error(
+                "telegram-app: refusing login, %s (set TELEGRAM_BOT_TOKEN and "
+                "TELEGRAM_OWNER_ID or TELEGRAM_ALLOWED_USERS)", exc.reason,
+            )
+            raise compat.LoginNotConfigured(exc.reason) from exc
         _log.warning("telegram-app: initData bearer rejected (%s)", exc.reason)
         return None
     return f"telegram:{user.get('id')}"

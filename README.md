@@ -225,7 +225,7 @@ All under `/api/plugins/telegram-app/`.
 ## Troubleshooting
 
 - **"Open this app from the Telegram bot menu button"**: the page was opened outside Telegram, so there is no `initData`.
-- **`auth/verify 503: Mini App login is not configured`**: `TELEGRAM_BOT_TOKEN` or the allowlist (`TELEGRAM_OWNER_ID` / `TELEGRAM_ALLOWED_USERS`) is missing.
+- **`auth/verify 503`** (`Auth provider 'telegram-app-initdata' unreachable`, and `telegram-app: refusing login` in the dashboard log): `TELEGRAM_BOT_TOKEN` or the allowlist (`TELEGRAM_OWNER_ID` / `TELEGRAM_ALLOWED_USERS`) is missing.
 - **`auth/verify 403`**: wrong bot token, a user id not on the allowlist, or `initData` older than the freshness window. Reopen the Mini App; the dashboard log says which check failed (`initData rejected (stale)` and similar).
 - **`auth/verify 429`**: too many failed attempts; wait for the `Retry-After` seconds.
 - **`401` on every call / 404 on `/api/plugins/telegram-app/...`**: the plugin is not in `plugins.enabled`, or the dashboard was not restarted after installing. Check `curl -X POST http://127.0.0.1:9119/api/plugins/telegram-app/auth/verify`: `401` means mounted, `404` means not mounted.

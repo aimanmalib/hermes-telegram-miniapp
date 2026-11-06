@@ -91,13 +91,20 @@ def register_token_route(path: str) -> bool:
     return True
 
 
+class LoginNotConfigured(Exception):
+    """Raised by a token ``verify`` callback when login cannot work at all (credentials unset)."""
+
+
 def token_provider(name: str, display_name: str, verify: Callable[[str], Optional[str]]):
     """A token-only ``DashboardAuthProvider``: ``verify(token)`` returns a principal id or None.
+
+    ``verify`` raising ``LoginNotConfigured`` becomes Hermes's ``ProviderError``, which the seam
+    answers with 503 instead of 401, so an unconfigured install is told apart from a refused user.
 
     No browser login and no cookie session; the interactive methods refuse. Raises ImportError on a
     Hermes without the dashboard-auth provider API.
     """
-    from hermes_cli.dashboard_auth import DashboardAuthProvider, TokenPrincipal  # type: ignore
+    from hermes_cli.dashboard_auth import DashboardAuthProvider, ProviderError, TokenPrincipal  # type: ignore
 
     class _Provider(DashboardAuthProvider):
         supports_token = True
@@ -105,7 +112,10 @@ def token_provider(name: str, display_name: str, verify: Callable[[str], Optiona
         interactive_login = False
 
         def verify_token(self, *, token: str):
-            principal = verify(token)
+            try:
+                principal = verify(token)
+            except LoginNotConfigured as exc:
+                raise ProviderError(str(exc)) from exc
             return TokenPrincipal(principal=principal, provider=name) if principal else None
 
         def start_login(self, *, redirect_uri: str):

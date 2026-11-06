@@ -123,6 +123,10 @@ def stub_dashboard_auth():
     class DashboardAuthProvider:
         supports_token = False
 
+    class ProviderError(Exception):
+        pass
+
+    da.ProviderError = ProviderError
     da.TokenPrincipal = TokenPrincipal
     da.DashboardAuthProvider = DashboardAuthProvider
     da.providers = []

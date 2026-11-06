@@ -16,7 +16,8 @@ Hermes plugin catalog.
   `POST /auth/verify`; a token provider registered by the plugin verifies it before the route runs. The plugin no
   longer adds anything to the dashboard's private public-path set ([decision 0006](docs/decisions/0006-login-through-the-token-seam.md)).
 - `GET /health` now needs the session token. `auth_mode` is `token-seam` or `unavailable`.
-- A refused login answers `401` from Hermes (was `403` from the plugin).
+- A refused login answers `401` from Hermes (was `403` from the plugin). A missing bot token or allowlist still
+  answers `503`, now with Hermes's "auth provider unreachable" detail.
 - `requires_hermes` is `>=0.23.0`; Hermes v0.22.x is no longer supported.
 - `scripts/install.sh` checks that the login route answers `401` without `initData` instead of calling `/health`.
 

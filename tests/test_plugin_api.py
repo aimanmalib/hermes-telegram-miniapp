@@ -44,9 +44,13 @@ def test_provider_rejects_stale_forged_or_stranger_init_data(plugin):
     assert p.verify_token(token=make_init_data(auth_date=int(time.time()), user=stranger)) is None
 
 
-def test_provider_refuses_everyone_without_allowlist(plugin, monkeypatch):
+def test_provider_unconfigured_is_a_provider_error_not_a_refusal(plugin, monkeypatch):
+    # Hermes answers ProviderError with 503, so "not configured" is told apart from "not allowed".
+    import pytest
+
     monkeypatch.delenv("TELEGRAM_OWNER_ID")
-    assert _provider(plugin).verify_token(token=make_init_data(auth_date=int(time.time()))) is None
+    with pytest.raises(plugin.da.ProviderError):
+        _provider(plugin).verify_token(token=make_init_data(auth_date=int(time.time())))
 
 
 def test_health_reports_manifest_version(plugin):

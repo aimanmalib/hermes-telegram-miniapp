@@ -35,4 +35,4 @@ def register(ctx) -> None:
         _log.warning("telegram-app: login provider unavailable (%s)", exc)
         return
     ctx.register_dashboard_auth_provider(provider)
-    compat.register_token_route(tg_token.LOGIN_PATH)
+    compat.register_token_route(tg_token.LOGIN_PATH, tg_token.SCOPE)

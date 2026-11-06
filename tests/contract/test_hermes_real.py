@@ -34,6 +34,8 @@ import pytest
 PREFIX = "/api/plugins/telegram-app"
 REPO = Path(__file__).resolve().parents[2]
 PLUGIN_NAME = "telegram-app"
+# Turns on Hermes's bundled drain provider, so a core token route exists (tests at the end).
+DRAIN_SECRET = "contract-Drain-0123456789-abcdefghijklmnopqrstuvwxyz"
 
 
 def helpers():
@@ -87,8 +89,7 @@ def hermes(tmp_path_factory):
         "TELEGRAM_BOT_TOKEN": h.BOT_TOKEN,
         "TELEGRAM_OWNER_ID": str(h.OWNER_ID),
         "TELEGRAM_APP_ALERTS_DISABLED": "1",
-        # Turns on Hermes's bundled drain provider, so a core token route exists (see test below).
-        "HERMES_DASHBOARD_DRAIN_SECRET": "contract-Drain-0123456789-abcdefghijklmnopqrstuvwxyz",
+        "HERMES_DASHBOARD_DRAIN_SECRET": DRAIN_SECRET,
     }
     with pytest.MonkeyPatch.context() as mp:
         for key in ("TELEGRAM_ALLOWED_USERS", "TELEGRAM_INITDATA_MAX_AGE", "TELEGRAM_BOT_ID"):
@@ -297,12 +298,12 @@ def test_logs_read_from_the_hermes_home(hermes):
     assert "contract-test: marker line" in json.dumps(r.json())
 
 
-def test_init_data_also_passes_core_token_routes(hermes):
-    """Measured, not wished: Hermes asks every token provider on every token route.
+def test_init_data_and_core_token_routes(hermes):
+    """Measured, not wished: what a valid ``initData`` bearer does on Hermes's drain route.
 
-    With the drain secret set, ``/api/gateway/drain`` refuses the dashboard session token, but a valid
-    ``initData`` bearer passes the token gate (the GET then 404s; nothing is drained). When Hermes binds
-    token routes to providers (NousResearch/hermes-agent#143507) this test flips and ADR 0006 changes.
+    Without per-route scopes (v0.23.0) Hermes asks every token provider on every token route, so the bearer
+    passes the drain route's token gate (the GET then 404s; nothing is drained) although the session token
+    cannot. With scopes (NousResearch/hermes-agent#146551) drain demands ``drain`` and ours is refused (403).
     """
     from hermes_cli.dashboard_auth.token_auth import is_token_route
 
@@ -310,4 +311,19 @@ def test_init_data_also_passes_core_token_routes(hermes):
     assert hermes.client.get("/api/gateway/drain", headers=_auth(hermes)).status_code == 401
     init_data = hermes.h.make_init_data(auth_date=int(time.time()))
     r = hermes.client.get("/api/gateway/drain", headers={"Authorization": f"Bearer {init_data}"})
-    assert r.status_code != 401
+    if hermes.compat.token_route_scopes_supported():
+        assert r.status_code == 403
+    else:
+        assert r.status_code != 401
+
+
+def test_other_token_credentials_cannot_log_in(hermes):
+    """The drain secret is a valid bearer for Hermes, but it never buys a session token by itself."""
+    forged = hermes.h.make_init_data(auth_date=int(time.time()), bot_token="999:not-the-bot")
+    r = hermes.client.post(
+        f"{PREFIX}/auth/verify", json={"init_data": forged}, headers={"Authorization": f"Bearer {DRAIN_SECRET}"}
+    )
+    # Scoped seam: refused at the gate (403, missing scope). Old seam: the gate admits any provider's
+    # principal, and the route refuses the body (403). Either way, no token.
+    assert r.status_code == 403
+    assert "session_token" not in r.text

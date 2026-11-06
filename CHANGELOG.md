@@ -5,6 +5,18 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-06
+
+### Added
+
+- **Scoped login, ready for Hermes route scopes.** Every principal the plugin's token provider issues carries the scope
+  `telegram-app`. Where Hermes's `register_token_route` takes `scope` (proposed in NousResearch/hermes-agent#146551),
+  the login route demands it. Tested against Hermes `main` with that PR merged: `/api/gateway/drain` refuses an
+  `initData` bearer (403) and the drain secret cannot open the login route (403). Detected by probing the function
+  signature; on v0.23.0 nothing changes.
+- Contract test `test_other_token_credentials_cannot_log_in`; the drain test is now `test_init_data_and_core_token_routes`
+  and checks the result on both kinds of seam.
+
 ## [0.5.1] - 2026-11-06
 
 No code change to the plugin's behaviour.

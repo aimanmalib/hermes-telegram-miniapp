@@ -27,6 +27,7 @@ def test_provider_vouches_for_valid_owner_init_data(plugin):
     principal = _provider(plugin).verify_token(token=make_init_data(auth_date=int(time.time())))
     assert principal.principal == f"telegram:{OWNER_ID}"
     assert principal.provider == "telegram-app-initdata"
+    assert principal.scopes == ("telegram-app",)
 
 
 def test_provider_ignores_other_bearers(plugin):
@@ -177,3 +178,22 @@ def test_cron_create_refuses_script_jobs(plugin, monkeypatch):
     ok = plugin.client.post(f"{PREFIX}/cron", json={"schedule": "1h", "prompt": "hi", "deliver": "telegram"})
     assert ok.status_code == 200
     assert created == [{"schedule": "1h", "prompt": "hi", "deliver": "telegram"}]
+
+
+def test_login_route_demands_our_scope_where_hermes_supports_it(plugin, monkeypatch):
+    # A seam with per-route scopes (NousResearch/hermes-agent#146551) gets ours; the probe reads the signature.
+    scoped = {}
+
+    def register_token_route(path, *, scope=None):
+        scoped[path] = scope
+
+    monkeypatch.setattr(plugin.token_auth, "register_token_route", register_token_route)
+    compat = sys.modules["hermes_tma_hermes_compat"]
+    assert compat.token_route_scopes_supported()
+    assert compat.register_token_route(f"{PREFIX}/auth/verify", "telegram-app")
+    assert scoped == {f"{PREFIX}/auth/verify": "telegram-app"}
+
+
+def test_old_seam_gets_the_path_alone(plugin):
+    compat = sys.modules["hermes_tma_hermes_compat"]
+    assert not compat.token_route_scopes_supported()  # the stub's register is set.add

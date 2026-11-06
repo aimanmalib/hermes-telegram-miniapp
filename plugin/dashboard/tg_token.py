@@ -24,6 +24,9 @@ _log = logging.getLogger("hermes.plugin.telegram-app")
 
 PROVIDER_NAME = "telegram-app-initdata"
 LOGIN_PATH = "/api/plugins/telegram-app/auth/verify"
+# Stamped on every principal we issue and demanded by the login route where Hermes supports route
+# scopes, so another provider's credential cannot open our route and ours cannot open a scoped one.
+SCOPE = "telegram-app"
 
 
 def verify_bearer(token: str) -> Optional[str]:
@@ -54,4 +57,4 @@ def verify_bearer(token: str) -> Optional[str]:
 
 
 def provider():
-    return compat.token_provider(PROVIDER_NAME, "Telegram Mini App (initData)", verify_bearer)
+    return compat.token_provider(PROVIDER_NAME, "Telegram Mini App (initData)", verify_bearer, scope=SCOPE)

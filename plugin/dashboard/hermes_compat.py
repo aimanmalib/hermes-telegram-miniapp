@@ -80,22 +80,40 @@ AUTH_MODE_TOKEN_SEAM = "token-seam"
 AUTH_MODE_UNAVAILABLE = "unavailable"
 
 
-def register_token_route(path: str) -> bool:
-    """Opt ``path`` in to bearer-token auth. False when this Hermes has no seam (older than v0.23.0)."""
+def register_token_route(path: str, scope: str) -> bool:
+    """Opt ``path`` in to bearer-token auth. False when this Hermes has no seam (older than v0.23.0).
+
+    Where Hermes supports per-route scopes (``register_token_route(path, scope=...)``, proposed in
+    NousResearch/hermes-agent#146551) the route demands ``scope``, so only principals our provider
+    issues are admitted. Older seams take the path alone.
+    """
     try:
         from hermes_cli.dashboard_auth.token_auth import register_token_route as _register  # type: ignore
     except Exception as exc:
         _log.warning("telegram-app: Hermes has no token-auth seam (%s); login is unavailable", exc)
         return False
-    _register(path)
+    if token_route_scopes_supported():
+        _register(path, scope=scope)
+    else:
+        _register(path)
     return True
+
+
+def token_route_scopes_supported() -> bool:
+    """True when this Hermes's ``register_token_route`` takes ``scope`` (probed, not version-checked)."""
+    try:
+        from hermes_cli.dashboard_auth.token_auth import register_token_route as _register  # type: ignore
+
+        return "scope" in inspect.signature(_register).parameters
+    except Exception:
+        return False
 
 
 class LoginNotConfigured(Exception):
     """Raised by a token ``verify`` callback when login cannot work at all (credentials unset)."""
 
 
-def token_provider(name: str, display_name: str, verify: Callable[[str], Optional[str]]):
+def token_provider(name: str, display_name: str, verify: Callable[[str], Optional[str]], scope: str = ""):
     """A token-only ``DashboardAuthProvider``: ``verify(token)`` returns a principal id or None.
 
     ``verify`` raising ``LoginNotConfigured`` becomes Hermes's ``ProviderError``, which the seam
@@ -116,7 +134,9 @@ def token_provider(name: str, display_name: str, verify: Callable[[str], Optiona
                 principal = verify(token)
             except LoginNotConfigured as exc:
                 raise ProviderError(str(exc)) from exc
-            return TokenPrincipal(principal=principal, provider=name) if principal else None
+            if not principal:
+                return None
+            return TokenPrincipal(principal=principal, provider=name, scopes=(scope,) if scope else ())
 
         def start_login(self, *, redirect_uri: str):
             raise NotImplementedError(f"{display_name} has no browser login flow")

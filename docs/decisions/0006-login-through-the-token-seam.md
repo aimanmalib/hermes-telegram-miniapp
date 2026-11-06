@@ -28,13 +28,16 @@ holds Telegram `initData`, and checking it is exactly what a token provider does
 
 - The plugin passes `hermes plugins validate` (private-import warnings remain: `_SESSION_TOKEN`, `register_token_route`,
   `cron.jobs`).
-- Hermes asks every token provider on every token route, so a valid `initData` is also accepted on core token routes.
-  Today the only one is `/api/gateway/drain`, and only when `HERMES_DASHBOARD_DRAIN_SECRET` is set. That route refuses
-  the dashboard session token, so this is one endpoint the `initData` holder could not reach before (corrected in
-  0.5.1; 0.5.0 said "nothing new", which was wrong). It is weaker than what the same holder can already do: create
-  agent cron jobs. The plugin cannot close it, because a provider is not told which route it is vouching for; the fix
-  is provider-bound token routes in Hermes (NousResearch/hermes-agent#143507).
-  `test_init_data_also_passes_core_token_routes` measures it and will flip when Hermes changes.
+- Hermes v0.23.0 asks every token provider on every token route, so a valid `initData` is also accepted on core token
+  routes. Today the only one is `/api/gateway/drain`, and only when `HERMES_DASHBOARD_DRAIN_SECRET` is set. That route
+  refuses the dashboard session token, so this is one endpoint the `initData` holder could not reach before (corrected
+  in 0.5.1; 0.5.0 said "nothing new", which was wrong). It is weaker than what the same holder can already do: create
+  agent cron jobs. A provider is not told which route it vouches for, so the plugin cannot close this alone.
+- Since 0.5.2 every principal the plugin issues carries the scope `telegram-app`, and where Hermes supports per-route
+  scopes (`register_token_route(path, scope=...)`, proposed in NousResearch/hermes-agent#146551) the login route demands
+  it. The plugin probes the signature, not the version. Measured on Hermes `main` with #146551 merged: drain demands
+  `drain` and refuses `initData` (403), and the drain secret is refused on the login route (403). On v0.23.0 the old
+  behaviour stays and is measured too (`test_init_data_and_core_token_routes`, `test_other_token_credentials_cannot_log_in`).
 - A seam rejection is 401 (was 403). The Mini App shows its "close and reopen" message, which also fixes the most
   common cause, stale `initData`.
 - Hermes v0.22.x is no longer supported.

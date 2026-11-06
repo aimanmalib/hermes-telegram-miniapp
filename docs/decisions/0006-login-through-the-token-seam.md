@@ -28,9 +28,13 @@ holds Telegram `initData`, and checking it is exactly what a token provider does
 
 - The plugin passes `hermes plugins validate` (private-import warnings remain: `_SESSION_TOKEN`, `register_token_route`,
   `cron.jobs`).
-- Hermes asks every token provider on every token route, so a valid `initData` is also accepted on core token routes
-  such as `/api/gateway/drain`. This grants nothing new: the same `initData` already buys the session token, which
-  authorises the whole dashboard API. Upstream issue NousResearch/hermes-agent#143507 asks for provider-bound routes.
+- Hermes asks every token provider on every token route, so a valid `initData` is also accepted on core token routes.
+  Today the only one is `/api/gateway/drain`, and only when `HERMES_DASHBOARD_DRAIN_SECRET` is set. That route refuses
+  the dashboard session token, so this is one endpoint the `initData` holder could not reach before (corrected in
+  0.5.1; 0.5.0 said "nothing new", which was wrong). It is weaker than what the same holder can already do: create
+  agent cron jobs. The plugin cannot close it, because a provider is not told which route it is vouching for; the fix
+  is provider-bound token routes in Hermes (NousResearch/hermes-agent#143507).
+  `test_init_data_also_passes_core_token_routes` measures it and will flip when Hermes changes.
 - A seam rejection is 401 (was 403). The Mini App shows its "close and reopen" message, which also fixes the most
   common cause, stale `initData`.
 - Hermes v0.22.x is no longer supported.

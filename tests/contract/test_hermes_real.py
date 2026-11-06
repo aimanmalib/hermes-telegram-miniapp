@@ -87,6 +87,8 @@ def hermes(tmp_path_factory):
         "TELEGRAM_BOT_TOKEN": h.BOT_TOKEN,
         "TELEGRAM_OWNER_ID": str(h.OWNER_ID),
         "TELEGRAM_APP_ALERTS_DISABLED": "1",
+        # Turns on Hermes's bundled drain provider, so a core token route exists (see test below).
+        "HERMES_DASHBOARD_DRAIN_SECRET": "contract-Drain-0123456789-abcdefghijklmnopqrstuvwxyz",
     }
     with pytest.MonkeyPatch.context() as mp:
         for key in ("TELEGRAM_ALLOWED_USERS", "TELEGRAM_INITDATA_MAX_AGE", "TELEGRAM_BOT_ID"):
@@ -293,3 +295,19 @@ def test_logs_read_from_the_hermes_home(hermes):
     r = hermes.client.get(f"{PREFIX}/logs", params={"file": "agent"}, headers=_auth(hermes))
     assert r.status_code == 200, r.text
     assert "contract-test: marker line" in json.dumps(r.json())
+
+
+def test_init_data_also_passes_core_token_routes(hermes):
+    """Measured, not wished: Hermes asks every token provider on every token route.
+
+    With the drain secret set, ``/api/gateway/drain`` refuses the dashboard session token, but a valid
+    ``initData`` bearer passes the token gate (the GET then 404s; nothing is drained). When Hermes binds
+    token routes to providers (NousResearch/hermes-agent#143507) this test flips and ADR 0006 changes.
+    """
+    from hermes_cli.dashboard_auth.token_auth import is_token_route
+
+    assert is_token_route("/api/gateway/drain")
+    assert hermes.client.get("/api/gateway/drain", headers=_auth(hermes)).status_code == 401
+    init_data = hermes.h.make_init_data(auth_date=int(time.time()))
+    r = hermes.client.get("/api/gateway/drain", headers={"Authorization": f"Bearer {init_data}"})
+    assert r.status_code != 401

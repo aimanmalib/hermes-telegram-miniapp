@@ -5,6 +5,23 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-06
+
+No code change to the plugin's behaviour.
+
+### Fixed
+
+- **Security docs corrected.** 0.5.0 said a valid `initData` accepted on Hermes's other token routes "grants nothing
+  new". Measured: with `HERMES_DASHBOARD_DRAIN_SECRET` set, `/api/gateway/drain` refuses the dashboard session token but
+  lets a valid `initData` bearer through its token gate. ADR 0006, SECURITY-REVIEW.md and the README now say so. The
+  plugin cannot scope this (a token provider is not told the route); it waits on NousResearch/hermes-agent#143507.
+
+### Added
+
+- Contract test `test_init_data_also_passes_core_token_routes`, which measures that behaviour against real Hermes and
+  will fail when Hermes binds token routes to providers.
+- `docs/brand/catalog-banner.png` (1200x600) for the Hermes plugin catalog card.
+
 ## [0.5.0] - 2026-11-06
 
 Requires Hermes v0.23.0 or later (tested in CI). Passes `hermes plugins validate`, so the plugin can be listed in the

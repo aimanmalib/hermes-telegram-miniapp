@@ -324,6 +324,13 @@ def test_other_token_credentials_cannot_log_in(hermes):
         f"{PREFIX}/auth/verify", json={"init_data": forged}, headers={"Authorization": f"Bearer {DRAIN_SECRET}"}
     )
     # Scoped seam: refused at the gate (403, missing scope). Old seam: the gate admits any provider's
-    # principal, and the route refuses the body (403). Either way, no token.
+    # principal, and the route refuses one that is not ours (403). Either way, no token.
+    assert r.status_code == 403
+    assert "session_token" not in r.text
+    # Even with a valid initData body: the bearer must be ours.
+    valid = hermes.h.make_init_data(auth_date=int(time.time()))
+    r = hermes.client.post(
+        f"{PREFIX}/auth/verify", json={"init_data": valid}, headers={"Authorization": f"Bearer {DRAIN_SECRET}"}
+    )
     assert r.status_code == 403
     assert "session_token" not in r.text

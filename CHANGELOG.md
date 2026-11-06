@@ -5,6 +5,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-11-06
+
+### Fixed
+
+- **Login accepts only its own provider's principal.** On Hermes v0.23.0 the token gate admits any provider's
+  principal on any token route, so `POST /auth/verify` with the drain secret as the bearer and a valid `initData`
+  body returned the session token. It needed a valid `initData` anyway, so no access was gained, but the route now
+  answers 403 unless our provider vouched for the bearer. Covered by a unit test and by
+  `test_other_token_credentials_cannot_log_in` against real Hermes.
+
 ## [0.5.2] - 2026-11-06
 
 ### Added

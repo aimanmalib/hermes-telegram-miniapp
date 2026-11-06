@@ -197,3 +197,22 @@ def test_login_route_demands_our_scope_where_hermes_supports_it(plugin, monkeypa
 def test_old_seam_gets_the_path_alone(plugin):
     compat = sys.modules["hermes_tma_hermes_compat"]
     assert not compat.token_route_scopes_supported()  # the stub's register is set.add
+
+
+def test_login_refuses_a_principal_from_another_provider(plugin):
+    from fastapi import FastAPI, Request
+    from fastapi.testclient import TestClient
+
+    from conftest import PREFIX as P
+
+    app = FastAPI()
+
+    @app.middleware("http")
+    async def vouch(request: Request, call_next):  # stands in for Hermes's token gate
+        request.state.token_principal = plugin.da.TokenPrincipal(principal="drain-control", provider="drain-secret")
+        return await call_next(request)
+
+    app.include_router(plugin.mod.router, prefix=P)
+    r = TestClient(app).post(f"{P}/auth/verify", json={"init_data": make_init_data(auth_date=int(time.time()))})
+    assert r.status_code == 403
+    assert "session_token" not in r.text

@@ -60,6 +60,12 @@ async def auth_verify(body: _AuthVerifyBody, request: Request, response: Respons
     failed; the reason is logged server-side (never the initData itself).
     """
     response.headers["Cache-Control"] = "no-store"
+    # Hermes v0.23.0 admits any token provider's principal on any token route, so the drain secret
+    # would get through the gate. Only a principal from our own provider may log in.
+    principal = getattr(request.state, "token_principal", None)
+    if principal is not None and getattr(principal, "provider", None) != tg_token.PROVIDER_NAME:
+        _log.warning("telegram-app: login refused, bearer vouched by %r", getattr(principal, "provider", None))
+        raise HTTPException(status_code=403, detail="Invalid Telegram initData")
     key = _client_key(request)
     wait = _limiter.retry_after(key)
     if wait:

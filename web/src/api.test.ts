@@ -49,6 +49,8 @@ describe("loginWithInitData", () => {
     expect(calls[0].url).toBe("/api/plugins/telegram-app/auth/verify");
     expect(calls[0].init.method).toBe("POST");
     expect(JSON.parse(String(calls[0].init.body))).toEqual({ init_data: "query_id=1&hash=abc" });
+    // Hermes's token-auth seam reads the initData from the bearer (plugin ADR 0006).
+    expect((calls[0].init.headers as Record<string, string>).Authorization).toBe("Bearer query_id=1&hash=abc");
     expect(api.getCachedToken()).toBe("tok");
     expect(api.getLastUser()).toEqual({ id: 7 });
   });

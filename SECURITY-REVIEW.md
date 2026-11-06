@@ -2,6 +2,8 @@
 
 Date: 22 October 2026. Scope: how the plugin turns Telegram `initData` into a Hermes dashboard session (`plugin/dashboard/tg_auth.py`, `plugin_api.py`), the endpoints reachable with that session, and the documented deployment.
 
+Changes in 0.5.0 to the login path: nothing in the plugin is public any more. `POST /auth/verify` is a Hermes token route: the Mini App sends `initData` as the bearer, the plugin's token provider (`plugin/dashboard/tg_token.py`) runs the full check from decision 0001 before the route runs, and the route checks the body again with the failure limiter. `_PUBLIC_API_PATHS` is no longer touched, and `/health` needs the session token. Tests: `tests/test_plugin_api.py` (provider), `test_login_rejects_forged_and_unlisted_users` in `tests/contract/` (no bearer, forged, stranger: 401; valid bearer with a forged body: 403). [Decision 0006](docs/decisions/0006-login-through-the-token-seam.md).
+
 Code layout since 0.4.0 (no behaviour change): `/health` and `/auth/verify` are in `plugin/dashboard/routes_auth.py`; every read of Hermes internals (`_PUBLIC_API_PATHS`, `_SESSION_TOKEN`, `get_secret`) is in `plugin/dashboard/hermes_compat.py`, and `tests/test_layout.py` fails if one appears anywhere else.
 
 Changes in 0.4.0 to the public surface: `/health` now also returns `auth_mode`, `hermes_version` and `capabilities` (two booleans for optional cron features). None of these is a secret; Hermes's own public `/api/status` already returns its version. The login path itself is unchanged: Hermes v0.23.0's bearer-token seam was evaluated and not adopted, because it cannot make the login route public and matches exact paths only ([decision 0005](docs/decisions/0005-login-stays-on-public-paths.md)). Tests: `tests/test_health.py`, and `test_health_reports_login_path_release_and_features` in `tests/contract/` against real Hermes.
@@ -100,6 +102,7 @@ The tests were confirmed to catch regressions by breaking the code on purpose an
 
 ## Residual risks
 
-- Login depends on two private Hermes names (`_PUBLIC_API_PATHS`, `_SESSION_TOKEN`). A rename breaks login (fails closed: the verify route then sits behind the dashboard's auth and returns 401). The contract tests against real Hermes releases catch it, and `/health` reports `"auth_mode": "unavailable"` while the public set lacks the plugin's paths.
+- Login depends on Hermes's token seam (`register_token_route`) and one private name (`_SESSION_TOKEN`). A rename breaks login (fails closed: 401). The contract tests against real Hermes releases catch it, and `/health` reports `"auth_mode": "unavailable"`.
+- Hermes consults every token provider on every token route, so valid `initData` also passes core token routes (for example `/api/gateway/drain`). No new access: the same `initData` already returns the session token for the whole dashboard API ([decision 0006](docs/decisions/0006-login-through-the-token-seam.md)).
 - Anyone on the allowlist has full control of the agent, as they would at the dashboard itself.
 - The failure limiter is per process and in memory; it resets when the dashboard restarts.

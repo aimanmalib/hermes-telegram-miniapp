@@ -12,7 +12,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from conftest import BOT_TOKEN, OWNER_ID, PLUGIN_DIR, load_module, make_init_data
+from conftest import BOT_TOKEN, OWNER_ID, PLUGIN_DIR, load_module, make_init_data, stub_dashboard_auth
 
 PREFIX = "/api/plugins/telegram-app"
 ENV_NAMES = ("TELEGRAM_BOT_TOKEN", "TELEGRAM_OWNER_ID", "TELEGRAM_ALLOWED_USERS",
@@ -56,11 +56,13 @@ def fake_secret_scope(monkeypatch, values: dict, *, raises: Exception | None = N
 def app_client(monkeypatch):
     ws = types.ModuleType("hermes_cli.web_server")
     ws._SESSION_TOKEN = "session"
-    ws._PUBLIC_API_PATHS = frozenset()
     pkg = types.ModuleType("hermes_cli")
     pkg.web_server = ws
+    da, token_auth = stub_dashboard_auth()
     monkeypatch.setitem(sys.modules, "hermes_cli", pkg)
     monkeypatch.setitem(sys.modules, "hermes_cli.web_server", ws)
+    monkeypatch.setitem(sys.modules, "hermes_cli.dashboard_auth", da)
+    monkeypatch.setitem(sys.modules, "hermes_cli.dashboard_auth.token_auth", token_auth)
     mod = load_module("plugin_api", "hermes_dashboard_plugin_telegram_app_env_test")
     app = FastAPI()
     app.include_router(mod.router, prefix=PREFIX)

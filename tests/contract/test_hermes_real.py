@@ -100,6 +100,10 @@ def hermes(tmp_path_factory):
 
         import hermes_cli.web_server as ws
         from fastapi.testclient import TestClient
+        from hermes_cli.plugins import discover_plugins
+
+        # ``hermes dashboard`` runs plugin discovery before serving, so auth providers register first.
+        discover_plugins()
 
         # No ``with``: the app's lifespan starts Hermes background workers this test does not need.
         client = TestClient(ws.app)
@@ -109,7 +113,9 @@ def hermes(tmp_path_factory):
 
 def _login(hermes) -> str:
     init_data = hermes.h.make_init_data(auth_date=int(time.time()))
-    r = hermes.client.post(f"{PREFIX}/auth/verify", json={"init_data": init_data})
+    r = hermes.client.post(
+        f"{PREFIX}/auth/verify", json={"init_data": init_data}, headers={"Authorization": f"Bearer {init_data}"}
+    )
     assert r.status_code == 200, r.text
     return r.json()["session_token"]
 
@@ -140,7 +146,11 @@ def test_plugin_is_mounted_by_the_dashboard(hermes):
 def test_compat_touches_resolve_against_hermes(hermes):
     compat = hermes.compat
     assert compat is not None, "hermes_compat.py was not loaded by the dashboard"
-    assert {f"{PREFIX}/health", f"{PREFIX}/auth/verify"} <= set(hermes.ws._PUBLIC_API_PATHS)
+    # Nothing is added to the dashboard's public set (catalog rule: no core override).
+    assert not {f"{PREFIX}/health", f"{PREFIX}/auth/verify"} & set(hermes.ws._PUBLIC_API_PATHS)
+    from hermes_cli.dashboard_auth.token_auth import is_token_route
+
+    assert is_token_route(f"{PREFIX}/auth/verify")
     token = compat.get_session_token()
     assert token and token == hermes.ws._SESSION_TOKEN
     assert compat.hermes_home().resolve() == hermes.home.resolve()
@@ -150,8 +160,9 @@ def test_compat_touches_resolve_against_hermes(hermes):
     assert compat.secret("TELEGRAM_BOT_TOKEN") == hermes.h.BOT_TOKEN
 
 
-def test_health_is_public(hermes):
-    r = hermes.client.get(f"{PREFIX}/health")
+def test_health_needs_the_session_token(hermes):
+    assert hermes.client.get(f"{PREFIX}/health").status_code == 401
+    r = hermes.client.get(f"{PREFIX}/health", headers=_auth(hermes))
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True and body["plugin"] == "telegram-app"
@@ -162,9 +173,9 @@ def _release(version: str) -> tuple[int, ...]:
 
 
 def test_health_reports_login_path_release_and_features(hermes):
-    body = hermes.client.get(f"{PREFIX}/health").json()
-    # The token seam (v0.23.0+) is not used; login stays on the public-path set (docs/decisions/0005).
-    assert body["auth_mode"] == "legacy-public-paths"
+    body = hermes.client.get(f"{PREFIX}/health", headers=_auth(hermes)).json()
+    # Login goes through Hermes's token-auth seam (docs/decisions/0006).
+    assert body["auth_mode"] == "token-seam"
     assert body["hermes_version"] == hermes.ws.app.version
     import cron.jobs as jobs
 
@@ -182,7 +193,9 @@ def test_other_routes_need_the_dashboard_token(hermes):
 
 def test_login_returns_the_dashboard_token_uncached(hermes):
     init_data = hermes.h.make_init_data(auth_date=int(time.time()))
-    r = hermes.client.post(f"{PREFIX}/auth/verify", json={"init_data": init_data})
+    r = hermes.client.post(
+        f"{PREFIX}/auth/verify", json={"init_data": init_data}, headers={"Authorization": f"Bearer {init_data}"}
+    )
     assert r.status_code == 200, r.text
     assert r.headers["cache-control"] == "no-store"
     assert r.json()["session_token"] == hermes.ws._SESSION_TOKEN
@@ -190,12 +203,24 @@ def test_login_returns_the_dashboard_token_uncached(hermes):
 
 def test_login_rejects_forged_and_unlisted_users(hermes):
     now = int(time.time())
+    valid = hermes.h.make_init_data(auth_date=now)
     forged = hermes.h.make_init_data(auth_date=now, bot_token="999:not-the-bot")
     stranger = hermes.h.make_init_data(auth_date=now, user={"id": 1, "first_name": "Eve"})
+    # The token seam answers 401 before the route runs: no bearer, or one our provider refuses.
+    r = hermes.client.post(f"{PREFIX}/auth/verify", json={"init_data": valid})
+    assert r.status_code == 401
     for init_data in (forged, stranger):
-        r = hermes.client.post(f"{PREFIX}/auth/verify", json={"init_data": init_data})
-        assert r.status_code == 403
+        r = hermes.client.post(
+            f"{PREFIX}/auth/verify", json={"init_data": init_data}, headers={"Authorization": f"Bearer {init_data}"}
+        )
+        assert r.status_code == 401
         assert "session_token" not in r.text
+    # A valid bearer does not excuse the body: the route re-verifies it (403).
+    r = hermes.client.post(
+        f"{PREFIX}/auth/verify", json={"init_data": forged}, headers={"Authorization": f"Bearer {valid}"}
+    )
+    assert r.status_code == 403
+    assert "session_token" not in r.text
 
 
 def test_status(hermes):
@@ -229,7 +254,7 @@ def test_cron_create_then_list(hermes):
 
 def test_cron_stop_and_catch_up(hermes):
     headers = _auth(hermes)
-    caps = hermes.client.get(f"{PREFIX}/health").json()["capabilities"]
+    caps = hermes.client.get(f"{PREFIX}/health", headers=_auth(hermes)).json()["capabilities"]
     r = hermes.client.post(
         f"{PREFIX}/cron",
         headers=headers,

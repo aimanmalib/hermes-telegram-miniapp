@@ -8,7 +8,7 @@ from fastapi import FastAPI
 
 from conftest import PLUGIN_DIR
 
-HERMES_INTERNALS = ("_PUBLIC_API_PATHS", "_SESSION_TOKEN", "get_secret", "get_hermes_home")
+HERMES_INTERNALS = ("dashboard_auth", "_PUBLIC_API_PATHS", "_SESSION_TOKEN", "get_secret", "get_hermes_home")
 
 EXPECTED_ROUTES = {
     ("GET", "/health"), ("POST", "/auth/verify"),

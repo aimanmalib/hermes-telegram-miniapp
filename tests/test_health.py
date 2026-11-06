@@ -24,19 +24,18 @@ def _cron_jobs(monkeypatch, **funcs):
     monkeypatch.setitem(sys.modules, "cron.jobs", jobs)
 
 
-def test_auth_mode_is_legacy_public_paths_when_registered(plugin):
-    assert _health(plugin)["auth_mode"] == "legacy-public-paths"
+def test_auth_mode_is_token_seam_when_registered(plugin):
+    assert _health(plugin)["auth_mode"] == "token-seam"
 
 
-def test_auth_mode_unavailable_when_hermes_drops_our_paths(plugin):
-    # Read on every request: a Hermes that rebinds the public set without our
-    # paths is reported, not hidden behind the value seen at import time.
-    plugin.ws._PUBLIC_API_PATHS = frozenset({"/api/status"})
+def test_auth_mode_unavailable_when_login_route_not_token_authable(plugin):
+    # Read on every request: a Hermes that drops our route is reported, not hidden.
+    plugin.token_auth.routes.clear()
     assert _health(plugin)["auth_mode"] == "unavailable"
 
 
-def test_auth_mode_unavailable_when_public_set_missing(plugin):
-    del plugin.ws._PUBLIC_API_PATHS
+def test_auth_mode_unavailable_when_provider_missing(plugin):
+    plugin.da.providers.clear()
     assert _health(plugin)["auth_mode"] == "unavailable"
 
 

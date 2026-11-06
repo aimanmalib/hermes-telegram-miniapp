@@ -5,8 +5,8 @@ into the dashboard module and a few helpers directly. Keeping all of those
 touches here means a Hermes upgrade that renames one of them breaks exactly one
 file (and the contract tests that exercise it):
 
-* ``hermes_cli.web_server._PUBLIC_API_PATHS`` — the paths the dashboard's auth
-  middleware lets through without a session token;
+* ``hermes_cli.dashboard_auth`` — the token-auth seam that verifies the
+  login route's bearer (Telegram ``initData``) through our provider;
 * ``hermes_cli.web_server._SESSION_TOKEN`` — the token the Mini App receives
   after a verified Telegram login;
 * ``hermes_cli.web_server.app.version`` — the running Hermes release;
@@ -14,8 +14,8 @@ file (and the contract tests that exercise it):
 * ``agent.secret_scope.get_secret`` — Hermes's credential route;
 * ``hermes_constants.get_hermes_home`` — the Hermes home directory.
 
-The module has no import-time side effects; ``plugin_api.py`` calls
-``allow_public`` once.
+The module has no import-time side effects; ``plugin/__init__.py`` registers
+the login provider and route once.
 
 It also holds ``load_sibling``: Hermes imports ``plugin_api.py`` with
 ``spec_from_file_location`` (not as a package), so ``from . import x`` does not
@@ -31,7 +31,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Optional
 
 _HERE = Path(__file__).resolve().parent
 MODULE_PREFIX = "hermes_tma_"
@@ -69,54 +69,79 @@ def hermes_home() -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Public paths. Hermes has no plugin API for declaring unauthenticated routes,
-# so we add ours to ``hermes_cli.web_server._PUBLIC_API_PATHS`` at import time.
-# The loopback auth middleware looks that module global up on every request.
-# The OAuth-gated mode (``auth_required``) uses a separate list and cookie
-# auth, and is not supported by this plugin.
-#
-# Hermes v0.23.0 added a bearer-token seam (``register_token_route``). It is not
-# used: it matches exact paths only (``/sessions/{id}/messages`` cannot be
-# registered) and makes a route token-authable, not public, so the login route
-# would still need this list. See docs/decisions/0005.
+# Login route. The Mini App sends its Telegram ``initData`` as the bearer token
+# on ``POST /auth/verify``. Hermes's token-auth seam (v0.23.0+) asks the
+# provider registered in ``plugin/__init__.py`` to verify it, so the route never
+# has to be public and no Hermes module attribute is rebound. The seam matches
+# exact paths, which is fine: only the login route uses it, every other route
+# takes the dashboard session token the login returns. See docs/decisions/0006.
 # ---------------------------------------------------------------------------
-AUTH_MODE_LEGACY = "legacy-public-paths"
+AUTH_MODE_TOKEN_SEAM = "token-seam"
 AUTH_MODE_UNAVAILABLE = "unavailable"
 
-_public_paths: tuple[str, ...] = ()
 
-
-def allow_public(paths: Iterable[str]) -> None:
-    global _public_paths
-    paths = tuple(paths)
-    _public_paths = paths
+def register_token_route(path: str) -> bool:
+    """Opt ``path`` in to bearer-token auth. False when this Hermes has no seam (older than v0.23.0)."""
     try:
-        import hermes_cli.web_server as ws  # type: ignore
-
-        existing = set(getattr(ws, "_PUBLIC_API_PATHS", frozenset()))
-        existing.update(paths)
-        ws._PUBLIC_API_PATHS = frozenset(existing)
-        _log.info("telegram-app: registered public paths %s", list(paths))
+        from hermes_cli.dashboard_auth.token_auth import register_token_route as _register  # type: ignore
     except Exception as exc:
-        _log.warning("telegram-app: could not register public paths: %s", exc)
+        _log.warning("telegram-app: Hermes has no token-auth seam (%s); login is unavailable", exc)
+        return False
+    _register(path)
+    return True
 
 
-def auth_mode() -> str:
-    """How the login route is reachable, checked against the live dashboard on every call.
+def token_provider(name: str, display_name: str, verify: Callable[[str], Optional[str]]):
+    """A token-only ``DashboardAuthProvider``: ``verify(token)`` returns a principal id or None.
 
-    ``legacy-public-paths`` while every path given to ``allow_public`` is still
-    in the dashboard's public set; ``unavailable`` otherwise (login then fails
-    closed with the dashboard's own 401).
+    No browser login and no cookie session; the interactive methods refuse. Raises ImportError on a
+    Hermes without the dashboard-auth provider API.
     """
-    if not _public_paths:
-        return AUTH_MODE_UNAVAILABLE
-    try:
-        import hermes_cli.web_server as ws  # type: ignore
+    from hermes_cli.dashboard_auth import DashboardAuthProvider, TokenPrincipal  # type: ignore
 
-        current = set(getattr(ws, "_PUBLIC_API_PATHS", ()))
+    class _Provider(DashboardAuthProvider):
+        supports_token = True
+        supports_session = False
+        interactive_login = False
+
+        def verify_token(self, *, token: str):
+            principal = verify(token)
+            return TokenPrincipal(principal=principal, provider=name) if principal else None
+
+        def start_login(self, *, redirect_uri: str):
+            raise NotImplementedError(f"{display_name} has no browser login flow")
+
+        def complete_login(self, *, code: str, state: str, code_verifier: str, redirect_uri: str):
+            raise NotImplementedError(f"{display_name} has no browser login flow")
+
+        def verify_session(self, *, access_token: str):
+            return None
+
+        def refresh_session(self, *, refresh_token: str):
+            raise NotImplementedError(f"{display_name} has no sessions")
+
+        def revoke_session(self, *, refresh_token: str) -> None:
+            return None
+
+    _Provider.name = name
+    _Provider.display_name = display_name
+    return _Provider()
+
+
+def auth_mode(path: str, provider_name: str) -> str:
+    """``token-seam`` while ``path`` is token-authable and our provider is registered, else ``unavailable``.
+
+    Checked against the live dashboard on every call; when it is ``unavailable`` the login fails
+    closed with the dashboard's own 401.
+    """
+    try:
+        from hermes_cli.dashboard_auth import list_token_providers  # type: ignore
+        from hermes_cli.dashboard_auth.token_auth import is_token_route  # type: ignore
+
+        ours = any(getattr(p, "name", "") == provider_name for p in list_token_providers())
+        return AUTH_MODE_TOKEN_SEAM if ours and is_token_route(path) else AUTH_MODE_UNAVAILABLE
     except Exception:
         return AUTH_MODE_UNAVAILABLE
-    return AUTH_MODE_LEGACY if set(_public_paths) <= current else AUTH_MODE_UNAVAILABLE
 
 
 def hermes_version() -> str | None:

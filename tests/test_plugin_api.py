@@ -13,10 +13,40 @@ def _login(client, init_data):
     return client.post(f"{PREFIX}/auth/verify", json={"init_data": init_data})
 
 
-def test_public_paths_registered(plugin):
-    assert f"{PREFIX}/auth/verify" in plugin.ws._PUBLIC_API_PATHS
-    assert f"{PREFIX}/health" in plugin.ws._PUBLIC_API_PATHS
-    assert "/api/status" in plugin.ws._PUBLIC_API_PATHS  # existing entries kept
+def test_login_route_is_a_token_route_and_nothing_is_made_public(plugin):
+    assert plugin.token_auth.routes == {f"{PREFIX}/auth/verify"}
+    assert not hasattr(plugin.ws, "_PUBLIC_API_PATHS")  # never created or rebound
+    assert [p.name for p in plugin.da.providers] == ["telegram-app-initdata"]
+
+
+def _provider(plugin):
+    return plugin.da.providers[0]
+
+
+def test_provider_vouches_for_valid_owner_init_data(plugin):
+    principal = _provider(plugin).verify_token(token=make_init_data(auth_date=int(time.time())))
+    assert principal.principal == f"telegram:{OWNER_ID}"
+    assert principal.provider == "telegram-app-initdata"
+
+
+def test_provider_ignores_other_bearers(plugin):
+    p = _provider(plugin)
+    assert p.verify_token(token=SESSION_TOKEN) is None  # not initData: other providers decide
+    assert p.verify_token(token="") is None
+    assert p.verify_token(token="hash=" + "a" * 64) is None
+
+
+def test_provider_rejects_stale_forged_or_stranger_init_data(plugin):
+    p = _provider(plugin)
+    assert p.verify_token(token=make_init_data(auth_date=int(time.time()) - 86400)) is None
+    assert p.verify_token(token=make_init_data(auth_date=int(time.time()), bot_token="1:other")) is None
+    stranger = {"id": 42, "first_name": "X"}
+    assert p.verify_token(token=make_init_data(auth_date=int(time.time()), user=stranger)) is None
+
+
+def test_provider_refuses_everyone_without_allowlist(plugin, monkeypatch):
+    monkeypatch.delenv("TELEGRAM_OWNER_ID")
+    assert _provider(plugin).verify_token(token=make_init_data(auth_date=int(time.time()))) is None
 
 
 def test_health_reports_manifest_version(plugin):

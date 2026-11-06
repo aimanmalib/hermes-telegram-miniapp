@@ -1,6 +1,6 @@
 # 0005. Login stays on the dashboard's public-path set
 
-Status: Accepted
+Status: Superseded by [0006](0006-login-through-the-token-seam.md)
 
 ## Context
 

@@ -1,7 +1,8 @@
-"""Public routes: liveness and the Telegram login.
+"""Liveness and the Telegram login.
 
-Both paths are registered with the dashboard as public (see ``plugin_api.py``);
-everything else in the plugin sits behind the dashboard's session-token check.
+``/auth/verify`` is a token route: Hermes lets it through only when the bearer is Telegram
+``initData`` that ``tg_token.verify_bearer`` accepts (registered in
+``plugin/__init__.py``). ``/health`` and everything else take the dashboard session token.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from pydantic import BaseModel, Field
 compat = sys.modules["hermes_tma_hermes_compat"]  # loaded first by plugin_api.py
 settings = compat.load_sibling("settings")
 tg_auth = compat.load_sibling("tg_auth")
+tg_token = compat.load_sibling("tg_token")
 
 router = APIRouter()
 _log = logging.getLogger("hermes.plugin.telegram-app")
@@ -30,9 +32,9 @@ def _client_key(request: Request) -> str:
 
 @router.get("/health")
 async def health():
-    """Public — no auth required. Used by reverse proxies / uptime checks.
+    """Plugin status, behind the dashboard session token.
 
-    ``auth_mode`` says how the login route is reachable; ``capabilities`` lists
+    ``auth_mode`` says whether the login route is reachable (``token-seam``); ``capabilities`` lists
     the optional Hermes features the Mini App may offer. No secrets.
     """
     return {
@@ -40,7 +42,7 @@ async def health():
         "plugin": "telegram-app",
         "version": settings.VERSION,
         "uptime_sec": settings.uptime_sec(),
-        "auth_mode": compat.auth_mode(),
+        "auth_mode": compat.auth_mode(tg_token.LOGIN_PATH, tg_token.PROVIDER_NAME),
         "hermes_version": compat.hermes_version(),
         "capabilities": compat.capabilities(),
     }

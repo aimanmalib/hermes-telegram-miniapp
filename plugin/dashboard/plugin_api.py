@@ -56,12 +56,6 @@ def _bootstrap_compat():
 
 compat = _bootstrap_compat()
 
-PUBLIC_PATHS = (
-    "/api/plugins/telegram-app/health",
-    "/api/plugins/telegram-app/auth/verify",
-)
-compat.allow_public(PUBLIC_PATHS)
-
 # Order is the order routes are matched in; each module owns disjoint paths.
 _ROUTE_MODULES = (
     "routes_auth",

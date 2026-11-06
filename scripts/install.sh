@@ -108,12 +108,14 @@ else
     warn "Output was: $out"
 fi
 
-log "Verifying /health"
-health=$(curl -sS --max-time 5 "$DASHBOARD_URL/api/plugins/telegram-app/health" || true)
-if echo "$health" | grep -q '"ok":true'; then
-    log "✓ /health returns OK"
+# Since 0.5.0 nothing in the plugin is public: the login route answers 401 to a request without a
+# Telegram initData bearer (Hermes's token seam), and 404 when the plugin is not mounted.
+log "Verifying the login route"
+code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 -X POST "$DASHBOARD_URL/api/plugins/telegram-app/auth/verify" || true)
+if [ "$code" = "401" ]; then
+    log "✓ Login route mounted and guarded (401 without initData)"
 else
-    warn "/health probe failed: $health"
+    warn "Login route probe returned HTTP $code (expected 401; 404 = plugin not mounted, Hermes older than v0.23.0?)"
 fi
 
 log "Done. Open Telegram and tap your bot's menu button."

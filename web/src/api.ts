@@ -77,7 +77,8 @@ export async function loginWithInitData(initData?: string): Promise<AuthResponse
   }
   const res = await fetch(`${API_BASE}/auth/verify`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    // Hermes's token-auth seam verifies the bearer before the route runs (plugin ADR 0006).
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${data}` },
     body: JSON.stringify({ init_data: data }),
   });
   if (!res.ok) throw await apiErrorFrom("auth/verify", res);

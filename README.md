@@ -71,13 +71,14 @@ This panel controls an AI agent, so the login path is strict. The full review, w
 
 ## Compatibility
 
-**Tested by running Hermes v0.22.4 and v0.23.0 in CI.** For each release listed in [`compat/hermes-versions.json`](compat/hermes-versions.json), the `hermes-contract` job installs that Hermes, links the plugin into a temporary Hermes home with synthetic credentials, and calls `/health`, login, status, sessions, cron (including stop and catch-up) and logs through the real dashboard app (`tests/contract/`). The plugin declares `requires_hermes: ">=0.22.4"`.
+**Tested by running Hermes v0.23.0 in CI.** For each release listed in [`compat/hermes-versions.json`](compat/hermes-versions.json), the `hermes-contract` job installs that Hermes, links the plugin into a temporary Hermes home with synthetic credentials, and calls `/health`, login, status, sessions, cron (including stop and catch-up) and logs through the real dashboard app (`tests/contract/`). The plugin declares `requires_hermes: ">=0.23.0"` and passes `hermes plugins validate`.
 
 What the plugin uses from Hermes:
 
 - Dashboard plugins are discovered at `~/.hermes/plugins/<name>/dashboard/manifest.json`; the `api` file is imported and its `router` mounted at `/api/plugins/<name>/`.
 - User plugins' backends load only when the plugin name is in `plugins.enabled` (Hermes security change, see setup).
-- The session header is `X-Hermes-Session-Token`; `/api/*` is gated except for paths in `hermes_cli.web_server._PUBLIC_API_PATHS`.
+- The session header is `X-Hermes-Session-Token`; every plugin route needs it except the login route.
+- The login route uses Hermes's token-auth seam (v0.23.0+): `plugin/__init__.py` registers a token provider with `ctx.register_dashboard_auth_provider` and marks `POST /auth/verify` as a token route. The Mini App sends its Telegram `initData` as `Authorization: Bearer …`; the provider runs the full check before the route runs. Nothing is added to the dashboard's public paths.
 - Data sources the endpoints use: `hermes_state.SessionDB` (`list_sessions_rich`, `session_count`, `get_messages`), `cron.jobs` (`list_jobs`, `create_job`, `update_job`, `remove_job`, `pause_job`, `resume_job`, `trigger_job`, and `cancel_job_run` when present), and `~/.hermes/logs/{agent,errors,gateway}.log`.
 - Optional features are detected by probing Hermes, not by version: `GET /api/plugins/telegram-app/health` lists them under `capabilities` (`cron_cancel`, `cron_catch_up`), and the app hides Stop and "Run missed jobs" when they are missing.
 
@@ -85,7 +86,7 @@ Requirements and caveats:
 
 - The dashboard must run in its default **loopback token mode** (bound to `127.0.0.1`). If you set `dashboard.public_url` or bind publicly, Hermes switches to its cookie/OAuth gate and this plugin's token login will not work.
 - `plugins.isolation: host` (plugins in a separate process) is not supported; the default `in_process` is.
-- The plugin relies on two private Hermes names, `_PUBLIC_API_PATHS` and `_SESSION_TOKEN` in `hermes_cli.web_server`, because Hermes has no public API for unauthenticated plugin routes. A Hermes release that renames them will break login. `GET /api/plugins/telegram-app/health` reports `"auth_mode": "legacy-public-paths"` while login works and `"unavailable"` when it does not; the dashboard log line `telegram-app: registered public paths` shows the same at startup. Hermes v0.23.0 added a bearer-token seam for plugin routes; it cannot replace this, for the reasons in [decision 0005](docs/decisions/0005-login-stays-on-public-paths.md).
+- The plugin still reads one private Hermes name, `_SESSION_TOKEN` in `hermes_cli.web_server`, to hand the dashboard session token to the phone, plus `hermes_cli.dashboard_auth.token_auth.register_token_route`. A Hermes release that renames them breaks login, which then fails closed. `GET /api/plugins/telegram-app/health` (session token required) reports `"auth_mode": "token-seam"` while login works and `"unavailable"` when it does not. See [decision 0006](docs/decisions/0006-login-through-the-token-seam.md).
 
 ## Setup
 
@@ -125,7 +126,7 @@ cd hermes-telegram-miniapp
 ./scripts/install.sh
 ```
 
-The script builds the app into `dist/`, copies it to `WEB_ROOT` (default `/var/www/telegram-app`, set `SUDO=sudo` if needed, or `SKIP_DEPLOY=1`), symlinks `plugin/` to `~/.hermes/plugins/telegram-app`, warns if `plugins.enabled` is missing, restarts `hermes-dashboard` if that systemd unit exists, and checks `/api/dashboard/plugins` and the plugin's `/health`. Plugin routes are mounted at dashboard start, so restart the dashboard yourself if you do not use that unit.
+The script builds the app into `dist/`, copies it to `WEB_ROOT` (default `/var/www/telegram-app`, set `SUDO=sudo` if needed, or `SKIP_DEPLOY=1`), symlinks `plugin/` to `~/.hermes/plugins/telegram-app`, warns if `plugins.enabled` is missing, restarts `hermes-dashboard` if that systemd unit exists, and checks `/api/dashboard/plugins` and that the login route answers `401` without initData. Plugin routes are mounted at dashboard start, so restart the dashboard yourself if you do not use that unit.
 
 ### 3. Reverse proxy (Caddy example)
 
@@ -204,8 +205,8 @@ All under `/api/plugins/telegram-app/`.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| GET | `/health` | public | Liveness, plugin and Hermes versions, login path (`auth_mode`), optional Hermes features (`capabilities`) |
-| POST | `/auth/verify` | initData | Verify initData, return the session token |
+| GET | `/health` | session | Liveness, plugin and Hermes versions, login path (`auth_mode`), optional Hermes features (`capabilities`) |
+| POST | `/auth/verify` | initData bearer | Verify initData (Hermes token seam, then the route again), return the session token |
 | GET | `/status` | session | System gauges, session and cron counts |
 | GET | `/usage?window=today\|week\|month\|all` | session | Token and cost totals, top sessions |
 | GET | `/sessions?limit=N` | session | Recent sessions |
@@ -227,7 +228,7 @@ All under `/api/plugins/telegram-app/`.
 - **`auth/verify 503: Mini App login is not configured`**: `TELEGRAM_BOT_TOKEN` or the allowlist (`TELEGRAM_OWNER_ID` / `TELEGRAM_ALLOWED_USERS`) is missing.
 - **`auth/verify 403`**: wrong bot token, a user id not on the allowlist, or `initData` older than the freshness window. Reopen the Mini App; the dashboard log says which check failed (`initData rejected (stale)` and similar).
 - **`auth/verify 429`**: too many failed attempts; wait for the `Retry-After` seconds.
-- **`401` on every call / 404 on `/api/plugins/telegram-app/...`**: the plugin is not in `plugins.enabled`, or the dashboard was not restarted after installing. Check `curl http://127.0.0.1:9119/api/plugins/telegram-app/health`.
+- **`401` on every call / 404 on `/api/plugins/telegram-app/...`**: the plugin is not in `plugins.enabled`, or the dashboard was not restarted after installing. Check `curl -X POST http://127.0.0.1:9119/api/plugins/telegram-app/auth/verify`: `401` means mounted, `404` means not mounted.
 - **`400 Invalid Host header`**: the proxy forwards your public hostname; keep `header_up Host {upstream_hostport}`.
 - **Login works locally but not through the proxy after enabling `dashboard.public_url`**: that setting turns on Hermes' cookie gate, which this plugin does not support.
 
@@ -245,7 +246,7 @@ The evidence that it works is meant to be checkable:
 
 - The test suite, run with `python -m pytest` and `cd web && npm test`.
 - CI on Python 3.11 and 3.12, and Node 22 for every pull request.
-- Contract tests in CI that install real Hermes v0.22.4 and v0.23.0 and call the plugin through the Hermes dashboard app.
+- Contract tests in CI that install real Hermes v0.23.0 and call the plugin through the Hermes dashboard app.
 - 3 tagged releases, with notes in [CHANGELOG.md](CHANGELOG.md).
 
 ## License

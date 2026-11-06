@@ -5,6 +5,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-06
+
+Requires Hermes v0.23.0 or later (tested in CI). Passes `hermes plugins validate`, so the plugin can be listed in the
+Hermes plugin catalog.
+
+### Changed
+
+- **Login uses Hermes's token-auth seam.** The Mini App sends its Telegram `initData` as `Authorization: Bearer …` on
+  `POST /auth/verify`; a token provider registered by the plugin verifies it before the route runs. The plugin no
+  longer adds anything to the dashboard's private public-path set ([decision 0006](docs/decisions/0006-login-through-the-token-seam.md)).
+- `GET /health` now needs the session token. `auth_mode` is `token-seam` or `unavailable`.
+- A refused login answers `401` from Hermes (was `403` from the plugin).
+- `requires_hermes` is `>=0.23.0`; Hermes v0.22.x is no longer supported.
+- `scripts/install.sh` checks that the login route answers `401` without `initData` instead of calling `/health`.
+
 ## [0.4.0] - 2026-11-06
 
 Tested by running Hermes v0.22.4 and v0.23.0 in CI. `requires_hermes` stays `>=0.22.4`.

@@ -87,16 +87,60 @@ def plugin(tmp_path, monkeypatch):
 
     ws = types.ModuleType("hermes_cli.web_server")
     ws._SESSION_TOKEN = SESSION_TOKEN
-    ws._PUBLIC_API_PATHS = frozenset({"/api/status"})
     pkg = types.ModuleType("hermes_cli")
     pkg.web_server = ws
+    da, token_auth = stub_dashboard_auth()
+    pkg.dashboard_auth = da
     monkeypatch.setitem(sys.modules, "hermes_cli", pkg)
     monkeypatch.setitem(sys.modules, "hermes_cli.web_server", ws)
+    monkeypatch.setitem(sys.modules, "hermes_cli.dashboard_auth", da)
+    monkeypatch.setitem(sys.modules, "hermes_cli.dashboard_auth.token_auth", token_auth)
     for name in list(sys.modules):
         if name.startswith("hermes_tma_"):
             monkeypatch.delitem(sys.modules, name)
 
+    entry = load_entry()
+    ctx = types.SimpleNamespace(register_dashboard_auth_provider=da.providers.append)
+    entry.register(ctx)
     mod = load_module("plugin_api", "hermes_dashboard_plugin_telegram_app_test")
     app = FastAPI()
     app.include_router(mod.router, prefix=PREFIX)
-    return types.SimpleNamespace(mod=mod, ws=ws, client=TestClient(app))
+    return types.SimpleNamespace(mod=mod, ws=ws, da=da, token_auth=token_auth, client=TestClient(app))
+
+
+def stub_dashboard_auth():
+    """The slice of ``hermes_cli.dashboard_auth`` (v0.23.0) the plugin uses."""
+    import dataclasses
+
+    da = types.ModuleType("hermes_cli.dashboard_auth")
+
+    @dataclasses.dataclass(frozen=True)
+    class TokenPrincipal:
+        principal: str
+        provider: str
+        scopes: tuple = ()
+
+    class DashboardAuthProvider:
+        supports_token = False
+
+    da.TokenPrincipal = TokenPrincipal
+    da.DashboardAuthProvider = DashboardAuthProvider
+    da.providers = []
+    da.list_token_providers = lambda: [p for p in da.providers if p.supports_token]
+
+    token_auth = types.ModuleType("hermes_cli.dashboard_auth.token_auth")
+    token_auth.routes = set()
+    token_auth.register_token_route = token_auth.routes.add
+    token_auth.is_token_route = lambda path: path in token_auth.routes
+    da.token_auth = token_auth
+    return da, token_auth
+
+
+def load_entry():
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[1] / "plugin" / "__init__.py"
+    spec = importlib.util.spec_from_file_location("hermes_tma_test_entry", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod

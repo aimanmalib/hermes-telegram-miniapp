@@ -7,6 +7,10 @@
   "app.notAuthenticated": "Not authenticated",
   "app.openFromBot": "Open this app from the Telegram bot menu button so it can sign you in. Direct browser access is locked.",
   "app.userFallback": "you",
+  "app.linkChecking": "Checking connection…",
+  "app.linkUp": "Connected",
+  "app.linkUpVersion": "Connected · v{version}",
+  "app.linkDown": "Hermes unreachable",
 
   "tab.status": "Status",
   "tab.sessions": "Sessions",

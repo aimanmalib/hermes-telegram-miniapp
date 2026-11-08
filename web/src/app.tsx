@@ -9,12 +9,16 @@ import { LogsTab } from "./tabs/LogsTab";
 import { KnowledgeTab } from "./tabs/KnowledgeTab";
 import { SendTab } from "./tabs/SendTab";
 import { DEMO_ENABLED } from "./demo-gate";
+import { AppHeader } from "./AppHeader";
+import { Icon } from "./icons";
 import { initLang, t } from "./i18n";
 import { useLang } from "./i18n/useLang";
-import { demoBannerText } from "./i18n/demo-banner";
 import { errorText } from "./errors";
 
 type Tab = "status" | "sessions" | "cron" | "logs" | "knowledge" | "send";
+
+/** Tab bar order. Each name is also its icon (icons.tsx) and its `tab.*` label key. */
+const TABS: Tab[] = ["status", "sessions", "cron", "logs", "knowledge", "send"];
 
 interface View {
   tab: Tab;
@@ -181,18 +185,7 @@ export function App() {
 
   return (
     <div className="app">
-      <header className="app-header">
-        {DEMO_ENABLED && (
-          <div className="demo-banner" role="status">
-            {demoBannerText()}
-          </div>
-        )}
-        <h1>⚡ Hermes</h1>
-        <div className="user-chip">
-          <span className="dot" />
-          <span>{user?.first_name ?? user?.username ?? t("app.userFallback")}</span>
-        </div>
-      </header>
+      <AppHeader user={user} />
       <main className="app-content">
         {view.tab === "status" && (
           <StatusTab
@@ -221,62 +214,32 @@ export function App() {
         {view.tab === "send" && <SendTab />}
       </main>
       <nav className="tab-bar">
-        <TabButton
-          active={view.tab === "status"}
-          icon="📊"
-          label={t("tab.status")}
-          onClick={() => setView({ tab: "status" })}
-        />
-        <TabButton
-          active={view.tab === "sessions"}
-          icon="💬"
-          label={t("tab.sessions")}
-          onClick={() => setView({ tab: "sessions" })}
-        />
-        <TabButton
-          active={view.tab === "cron"}
-          icon="⏱"
-          label={t("tab.cron")}
-          onClick={() => setView({ tab: "cron" })}
-        />
-        <TabButton
-          active={view.tab === "logs"}
-          icon="📜"
-          label={t("tab.logs")}
-          onClick={() => setView({ tab: "logs" })}
-        />
-        <TabButton
-          active={view.tab === "knowledge"}
-          icon="🧠"
-          label={t("tab.knowledge")}
-          onClick={() => setView({ tab: "knowledge" })}
-        />
-        <TabButton
-          active={view.tab === "send"}
-          icon="✉️"
-          label={t("tab.send")}
-          onClick={() => setView({ tab: "send" })}
-        />
+        {TABS.map((tab) => (
+          <TabButton
+            key={tab}
+            tab={tab}
+            active={view.tab === tab}
+            onClick={() => setView({ tab })}
+          />
+        ))}
       </nav>
     </div>
   );
 }
 
 function TabButton({
+  tab,
   active,
-  icon,
-  label,
   onClick,
 }: {
+  tab: Tab;
   active: boolean;
-  icon: string;
-  label: string;
   onClick: () => void;
 }) {
   return (
-    <button data-active={active} onClick={onClick}>
-      <span className="tab-icon">{icon}</span>
-      {label}
+    <button data-active={active} aria-current={active ? "page" : undefined} onClick={onClick}>
+      <Icon name={tab} />
+      <span className="tab-label">{t(`tab.${tab}`)}</span>
     </button>
   );
 }

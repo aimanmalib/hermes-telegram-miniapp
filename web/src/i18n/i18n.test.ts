@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { DICTS, initLang, LANGS, langFromCode, pickLang, setLang, STORAGE_KEY, t, tList, type Dict } from "./index";
-import { DEMO_BANNER } from "./demo-banner";
+import { DEMO_TEXT } from "./demo-banner";
 import { formatRelative, formatUptime, formatWhen } from "../utils";
 
 const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
@@ -32,10 +32,17 @@ describe("language files", () => {
   });
 });
 
-describe("demo banner", () => {
-  it("has a non-empty text for every language", () => {
-    expect(Object.keys(DEMO_BANNER).sort()).toEqual([...LANGS].sort());
-    for (const lang of LANGS) expect(DEMO_BANNER[lang].trim()).not.toBe("");
+describe("demo pill", () => {
+  it("has a non-empty pill label and detail for every language", () => {
+    expect(Object.keys(DEMO_TEXT).sort()).toEqual([...LANGS].sort());
+    for (const lang of LANGS) {
+      expect(DEMO_TEXT[lang].pill.trim()).not.toBe("");
+      expect(DEMO_TEXT[lang].detail.trim()).not.toBe("");
+    }
+  });
+
+  it("keeps the pill short enough for a 320 px header", () => {
+    for (const lang of LANGS) expect(DEMO_TEXT[lang].pill.length).toBeLessThanOrEqual(14);
   });
 });
 

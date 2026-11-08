@@ -7,6 +7,10 @@
   "app.notAuthenticated": "Belum log masuk",
   "app.openFromBot": "Buka aplikasi ini dari butang menu bot Telegram supaya anda boleh log masuk. Akses terus dari pelayar dikunci.",
   "app.userFallback": "anda",
+  "app.linkChecking": "Menyemak sambungan…",
+  "app.linkUp": "Bersambung",
+  "app.linkUpVersion": "Bersambung · v{version}",
+  "app.linkDown": "Hermes tidak dapat dicapai",
 
   "tab.status": "Status",
   "tab.sessions": "Sesi",

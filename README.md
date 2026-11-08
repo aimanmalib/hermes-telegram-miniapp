@@ -188,7 +188,7 @@ Tap the menu button in your chat with the bot. The Status tab should show live n
 
 ## Demo mode
 
-Demo mode renders every tab with built-in sample data and makes no API calls, so the UI can be shown without a Hermes server. A yellow **Demo data · not connected to Hermes** banner stays at the top.
+Demo mode renders every tab with built-in sample data and makes no API calls, so the UI can be shown without a Hermes server. A small amber **Sample data** pill stays in the header (its tooltip reads "Sample data · not connected to Hermes").
 
 ```bash
 cd web

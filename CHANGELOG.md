@@ -5,6 +5,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Tab bar icons are drawn, not emoji.** Six outline icons copied from Tabler Icons (MIT, attribution in
+  `web/src/icons.tsx`); no new package. They follow the Telegram theme through `currentColor`.
+- **Telegram-style header.** The bot name sits over a status line read from `/health` ("Connected · v0.23.0",
+  or "Hermes unreachable"), with the user's initial on the right. The tab bar uses the main background with a hairline.
+- **Demo mode shows a small "Sample data" pill** in the header instead of the full-width yellow banner.
+  `check:no-demo` now also looks for the pill text in production bundles.
+
 ## [0.6.0] - 2026-11-08
 
 ### Breaking

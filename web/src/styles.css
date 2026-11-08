@@ -70,82 +70,12 @@ button {
   flex-direction: column;
 }
 
-.app-header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  padding: calc(env(safe-area-inset-top) + var(--space-3)) var(--space-4) var(--space-3);
-  background: var(--tg-bg-secondary);
-  border-bottom: 1px solid var(--tg-divider);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.app-header h1 {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.app-header .user-chip {
-  font-size: 13px;
-  color: var(--tg-hint);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.app-header .user-chip .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--tg-accent);
-}
-
 .app-content {
   flex: 1;
   padding: var(--space-3) 0 80px;
 }
 
-/* ---- Tabs ------------------------------------------------------------- */
-
-.tab-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  background: var(--tg-section);
-  border-top: 1px solid var(--tg-divider);
-  padding: var(--space-2) 0 calc(env(safe-area-inset-bottom) + var(--space-2));
-  z-index: 20;
-}
-
-.tab-bar button {
-  flex: 1;
-  min-width: 56px;
-  padding: var(--space-2);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  font-size: 11px;
-  color: var(--tg-hint);
-  transition: color 0.15s;
-}
-
-.tab-bar button[data-active="true"] {
-  color: var(--tg-accent);
-}
-
-.tab-bar .tab-icon {
-  font-size: 18px;
-}
+/* Header and tab bar: shell.css. */
 
 /* ---- Sections + cards ------------------------------------------------- */
 
@@ -749,17 +679,6 @@ body[data-scheme="light"] {
   50% { opacity: 1; }
 }
 
-/* Compact tab labels with 5+ tabs ----------------------------------- */
-@media (max-width: 420px) {
-  .tab-bar button {
-    font-size: 10px;
-    min-width: 48px;
-  }
-  .tab-bar .tab-icon {
-    font-size: 16px;
-  }
-}
-
 /* ---- Usage cards (Status tab) -------------------------------------- */
 
 .usage-grid {
@@ -1094,23 +1013,4 @@ body[data-scheme="light"] {
   width: 14px;
   height: 14px;
   border-width: 2px;
-}
-
-/* ---- Demo mode banner ----------------------------------------------- */
-
-.app-header:has(.demo-banner) {
-  flex-wrap: wrap;
-  padding-top: 0;
-}
-
-.demo-banner {
-  flex: 0 0 calc(100% + 2 * var(--space-4));
-  margin: 0 calc(-1 * var(--space-4)) var(--space-1);
-  padding: calc(env(safe-area-inset-top) + 6px) var(--space-4) 6px;
-  background: #f59e0b;
-  color: #1f1300;
-  font-size: 12px;
-  font-weight: 600;
-  text-align: center;
-  letter-spacing: 0.01em;
 }

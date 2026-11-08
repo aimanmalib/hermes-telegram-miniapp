@@ -12,8 +12,8 @@
  * A normal production build (`npm run build`) compiles `__DEMO_BUILD__` to
  * `false` and `import.meta.env.DEV` to `false`, so DEMO_ENABLED is a constant
  * `false` and the demo module is dropped from the bundle entirely
- * (`npm run check:no-demo` verifies that). The UI always shows a "Demo data"
- * banner while demo mode is on.
+ * (`npm run check:no-demo` verifies that). The header always shows a
+ * "Sample data" pill while demo mode is on.
  */
 
 import type { AuthUser } from "./api";

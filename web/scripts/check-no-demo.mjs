@@ -3,8 +3,8 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const root = new URL("../../dist/", import.meta.url).pathname;
-// Banner text and sample data. (src/demo-stub.ts may appear: it holds no data.)
-const needles = ["Demo data", "Data demo", "Backup restore drill", "Fix flaky checkout test", "not available in demo mode"];
+// Demo pill text and sample data. (src/demo-stub.ts may appear: it holds no data.)
+const needles = ["Sample data", "Data contoh", "Demo data", "Data demo", "Backup restore drill", "Fix flaky checkout test", "not available in demo mode"];
 
 function walk(dir) {
   return readdirSync(dir).flatMap((name) => {

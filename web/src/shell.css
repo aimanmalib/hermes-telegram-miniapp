@@ -1,0 +1,145 @@
+/* App shell: Telegram-style header and the bottom tab bar. Colours come from
+   the Telegram theme variables declared in styles.css. */
+
+/* Header in the shape of a Telegram chat header: name, then a status line
+   ("Connected · v0.23.0") where Telegram writes "online". */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding: calc(env(safe-area-inset-top) + var(--space-2)) var(--space-4) var(--space-2);
+  background: var(--tg-bg);
+  border-bottom: 0.5px solid var(--tg-divider);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 52px;
+}
+
+.app-title {
+  min-width: 0;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.app-link {
+  margin: 1px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--tg-hint);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+
+.app-link-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-link-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tg-hint);
+  transition: background-color 0.2s ease-out;
+}
+
+.app-link[data-state="up"] .app-link-dot { background: var(--tg-accent); }
+.app-link[data-state="down"] .app-link-dot { background: var(--tg-destructive); }
+.app-link[data-state="down"] { color: var(--tg-destructive); }
+
+.app-header-end {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.demo-pill {
+  padding: 3px var(--space-2);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tma-warn) 16%, transparent);
+  color: var(--tma-warn);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--tg-button);
+  color: var(--tg-button-text);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* ---- Tabs ------------------------------------------------------------- */
+
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: var(--tg-bg);
+  border-top: 0.5px solid var(--tg-divider);
+  padding: var(--space-1) var(--space-1) calc(env(safe-area-inset-bottom) + var(--space-1));
+  z-index: 20;
+}
+
+.tab-bar button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 48px;
+  padding: 6px 2px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: var(--tg-hint);
+  border-radius: 10px;
+  transition: color 0.15s ease-out;
+}
+
+.tab-bar button[data-active="true"] {
+  color: var(--tg-accent);
+}
+
+.tab-bar .icon {
+  stroke-width: 1.75;
+}
+
+.tab-bar .tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-bar button:focus-visible {
+  outline: 2px solid var(--tg-accent);
+  outline-offset: -2px;
+}

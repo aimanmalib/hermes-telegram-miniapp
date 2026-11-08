@@ -16,14 +16,18 @@
     "lang": "en"
   },
   "fade_sec": 0.3,
-  "forbid_on_screen": ["/home/", "/Users/", "127.0.0.1"],
+  "forbid_on_screen": [
+    "/home/",
+    "/Users/",
+    "127.0.0.1"
+  ],
   "title": "Hermes Telegram Mini App",
   "repo": "github.com/aimanmalib/hermes-telegram-miniapp",
   "shots": [
     {
       "id": "title",
       "kind": "card",
-      "duration": 5,
+      "duration": 3,
       "lines": [
         "Hermes Telegram Mini App",
         "Your Hermes agent, controlled from the chat you already use"
@@ -32,7 +36,7 @@
     {
       "id": "open",
       "kind": "mock",
-      "duration": 9,
+      "duration": 8,
       "caption": "Opens from your bot's menu button. Telegram-signed login: no VPN, no password.",
       "mock": {
         "label": "Mock",
@@ -53,39 +57,66 @@
     {
       "id": "status",
       "kind": "app",
-      "duration": 11,
+      "duration": 10,
       "needs_live": true,
       "caption": "Live from a real Hermes v{hermes_version}: host, sessions, cron and spend at a glance."
     },
     {
       "id": "cron",
       "kind": "app",
-      "duration": 12,
+      "duration": 10,
       "caption": "Run now, pause, edit cron jobs. Failed runs are flagged."
     },
     {
       "id": "sessions",
       "kind": "app",
-      "duration": 10,
+      "duration": 7,
       "caption": "Read what your agent did, from your phone."
     },
     {
       "id": "logs",
       "kind": "app",
-      "duration": 9,
+      "duration": 6,
       "caption": "Tail agent, error and gateway logs. Filter by level."
     },
     {
       "id": "brain",
       "kind": "app",
-      "duration": 13,
+      "duration": 9,
       "caption": "Browse your agent's skills. English and Malay built in.",
       "filter": "review"
     },
     {
+      "id": "ask",
+      "kind": "mock",
+      "duration": 18,
+      "needs_live": true,
+      "caption": "Ask from the panel. The real Hermes reply lands in your chat (chat screen mocked).",
+      "mock": {
+        "label": "Mock",
+        "bot": "Hermes",
+        "menu_button": "Panel",
+        "messages": [
+          {
+            "from": "bot",
+            "text": "Release is tonight. Anything to check?"
+          }
+        ]
+      },
+      "ask": {
+        "question": "Three-bullet checklist before I ship a release tonight? No commands.",
+        "type_delay_ms": 20,
+        "hold_queued_sec": 1.6,
+        "max_wait_sec": 240,
+        "lead_in_sec": 5,
+        "hold_delivered_sec": 1.6,
+        "skip_chip": "Skipped: the wait for Hermes's cron tick"
+      }
+    },
+    {
       "id": "security",
       "kind": "card",
-      "duration": 9,
+      "duration": 6,
       "lines": [
         "Built to be safe on a phone",
         "HMAC + Ed25519 verified Telegram login",
@@ -97,12 +128,68 @@
     {
       "id": "close",
       "kind": "card",
-      "duration": 6,
+      "duration": 5,
       "lines": [
         "github.com/aimanmalib/hermes-telegram-miniapp",
         "Submitted to the Hermes plugin catalog as telegram-app",
         "MIT licensed"
       ]
     }
-  ]
+  ],
+  "audio": {
+    "lufs": -14,
+    "true_peak": -1.5,
+    "sample_rate": 48000,
+    "bed": {
+      "chord_sec": 4,
+      "gain": 0.16,
+      "attack_sec": 1.2,
+      "fade_in_sec": 1.5,
+      "fade_out_sec": 3,
+      "chords": [
+        [
+          220.0,
+          277.18,
+          329.63,
+          440.0
+        ],
+        [
+          196.0,
+          246.94,
+          293.66,
+          392.0
+        ],
+        [
+          174.61,
+          220.0,
+          261.63,
+          349.23
+        ],
+        [
+          196.0,
+          246.94,
+          329.63,
+          392.0
+        ]
+      ],
+      "bass_gain": 0.1,
+      "shimmer_gain": 0.025
+    },
+    "cues": {
+      "tap": {
+        "freq": 1250,
+        "ms": 45,
+        "gain": 0.22
+      },
+      "chime": {
+        "freqs": [
+          880.0,
+          1318.51
+        ],
+        "ms": 700,
+        "gain": 0.18
+      }
+    }
+  },
+  "audio_note": "Generated music bed and UI cues (scripts/video/audio.py); no third-party audio."
 }

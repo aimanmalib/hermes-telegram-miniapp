@@ -96,9 +96,11 @@ def render_frames(browser, board, summary, out: Path):
         seg = {"id": shot["id"], "kind": shot["kind"], "duration": shot["duration"]}
         if shot["kind"] == "card":
             seg["png"] = shoot(card_html(shot, board), f"{shot['id']}-card.png")
+            seg["subtitle"] = " · ".join(shot["lines"])
         else:
-            seg.update(back=shoot(back_html(caption_text(shot, summary), screen), f"{shot['id']}-back.png"),
-                       front=front, screen=screen)
+            caption = caption_text(shot, summary)
+            seg.update(back=shoot(back_html(caption, screen), f"{shot['id']}-back.png"), front=front, screen=screen,
+                       subtitle=caption)
         segments.append(seg)
     page.close()
     return segments

@@ -4,7 +4,10 @@
 #
 #   VIDEO_OUT=<record.py output> VIDEO_FILE=<file.mp4> [SAMPLE_DIR=<dir>] scripts/video/compose.sh
 #
-# Output: H.264 yuv420p, canvas size and fps from the storyboard, no audio, +faststart.
+# Output: H.264 yuv420p, canvas size and fps from the storyboard, AAC soundtrack from audio.py normalised to the
+# storyboard's loudness (EBU R128), an English subtitle track, +faststart. The same subtitles are written next
+# to the video as <name>.srt, for players and uploads that take a separate caption file.
+# A screen shot may keep several parts of its recording ("ranges", a jump cut); they are joined first.
 # SAMPLE_DIR (optional) receives one PNG from the middle of each segment, for checking by eye.
 set -euo pipefail
 
@@ -15,8 +18,9 @@ work="$VIDEO_OUT/segments"
 rm -rf "$work"
 mkdir -p "$work"
 
-# One tab-separated line per segment: id kind duration png|back clip start front x y w h, then fps and fade.
-read -r fps fade < <(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); print(m["canvas"]["fps"], m["fade_sec"])' "$manifest")
+# One tab-separated line per segment: id kind duration png|back clip ranges front x y w h, then fps and fade.
+read -r fps fade lufs tp < <(python3 -c 'import json,sys; m=json.load(open(sys.argv[1])); a=m["audio"]
+print(m["canvas"]["fps"], m["fade_sec"], a["lufs"], a["true_peak"])' "$manifest")
 mapfile -t rows < <(python3 - "$manifest" <<'PY'
 import json, sys
 m = json.load(open(sys.argv[1]))
@@ -25,7 +29,9 @@ for s in m["segments"]:
         print("\t".join(map(str, [s["id"], "card", s["duration"], s["png"]])))
     else:
         b = s["screen"]
-        print("\t".join(map(str, [s["id"], "clip", s["duration"], s["back"], s["clip"], s["start"], s["front"],
+        ranges = s.get("ranges") or [[s["start"], s["start"] + s["duration"]]]
+        keep = "+".join(f"between(t,{a},{e})" for a, e in ranges)
+        print("\t".join(map(str, [s["id"], "clip", s["duration"], s["back"], s["clip"], keep, s["front"],
                                    b["x"], b["y"], b["w"], b["h"]])))
 PY
 )
@@ -37,7 +43,7 @@ total=0
 mids=()
 n=0
 for row in "${rows[@]}"; do
-  IFS=$'\t' read -r id kind dur a clip start front x y w h <<< "$row"
+  IFS=$'\t' read -r id kind dur a clip keep front x y w h <<< "$row"
   n=$((n + 1))
   seg="$work/$(printf '%02d' "$n")-$id.mp4"
   fades="fade=t=in:st=0:d=$fade,fade=t=out:st=$(python3 -c "print($dur - $fade)"):d=$fade"
@@ -45,9 +51,12 @@ for row in "${rows[@]}"; do
     ffmpeg -nostdin -loglevel error -y -loop 1 -framerate "$fps" -t "$dur" -i "$a" \
       -vf "format=yuv420p,$fades" "${enc[@]}" -t "$dur" "$seg"
   else
+    cut="$work/$(printf '%02d' "$n")-$id-cut.mp4"
+    ffmpeg -nostdin -loglevel error -y -i "$clip" \
+      -vf "fps=$fps,select='$keep',setpts=N/$fps/TB" -c:v libx264 -preset fast -crf 14 -an "$cut"
     ffmpeg -nostdin -loglevel error -y \
       -loop 1 -framerate "$fps" -t "$dur" -i "$a" \
-      -ss "$start" -t "$dur" -i "$clip" \
+      -t "$dur" -i "$cut" \
       -loop 1 -framerate "$fps" -t "$dur" -i "$front" \
       -filter_complex "[1:v]fps=$fps,scale=$w:$h:flags=lanczos,setsar=1,tpad=stop_mode=clone:stop_duration=$dur[c];[0:v][c]overlay=$x:$y:eof_action=repeat[s];[s][2:v]overlay=0:0,format=yuv420p,$fades[v]" \
       -map "[v]" "${enc[@]}" -t "$dur" "$seg"
@@ -58,10 +67,18 @@ for row in "${rows[@]}"; do
 done
 
 mkdir -p "$(dirname "$VIDEO_FILE")"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+srt="${VIDEO_FILE%.*}.srt"
+python3 "$here/audio.py" "$manifest" "$work/soundtrack.wav" "$work/subtitles.srt"
 tmp="$VIDEO_FILE.tmp.mp4"
-ffmpeg -nostdin -loglevel error -y -f concat -safe 0 -i "$list" -c copy -movflags +faststart "$tmp"
+ffmpeg -nostdin -loglevel error -y -f concat -safe 0 -i "$list" -i "$work/soundtrack.wav" -i "$work/subtitles.srt" \
+  -map 0:v -map 1:a -map 2:s -c:v copy \
+  -af "loudnorm=I=$lufs:TP=$tp:LRA=11,aresample=48000" -c:a aac -b:a 160k -ac 2 \
+  -c:s mov_text -metadata:s:s:0 language=eng -metadata:s:a:0 language=eng \
+  -t "$total" -movflags +faststart "$tmp"
 mv "$tmp" "$VIDEO_FILE"
-echo "wrote $VIDEO_FILE (${total}s planned)"
+cp "$work/subtitles.srt" "$srt"
+echo "wrote $VIDEO_FILE (${total}s planned) and $srt"
 
 if [[ -n "${SAMPLE_DIR:-}" ]]; then
   mkdir -p "$SAMPLE_DIR"

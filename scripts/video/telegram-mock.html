@@ -1,7 +1,9 @@
 <!doctype html>
 <!-- A plain chat screen for the demo video, labelled "Mock" the whole time.
      record.py serves it from the dev server's origin and fills in window.MOCK from storyboard.json.
-     Tapping the menu button slides up a sheet that loads the real Mini App (same origin, iframe). -->
+     Tapping the menu button slides up a sheet that loads the real Mini App (same origin, iframe).
+     record.py may also close the sheet, add a message (a delivered reply, MarkdownV2 as Hermes sent it)
+     and show a small "time skipped" chip over a jump cut. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -31,6 +33,13 @@
   .sheet { position: fixed; inset: 0; background: var(--bg); transform: translateY(100%);
     transition: transform 420ms cubic-bezier(.2, .8, .2, 1); border-radius: 14px 14px 0 0; overflow: hidden; }
   .sheet.open { transform: translateY(0); }
+  .msg b { font-weight: 700; }
+  .msg.long { max-width: 88%; font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .chip { position: fixed; top: 42%; left: 50%; transform: translateX(-50%); z-index: 10; padding: 8px 16px;
+    border-radius: 999px; background: #17212b; color: var(--text); border: 1px solid #2b3a4a; font: 700 16px/1.2 inherit;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .5);
+    font-family: inherit; opacity: 0; transition: opacity 200ms ease-out; }
+  .chip.on { opacity: 1; }
   .sheet iframe { width: 100%; height: 100%; border: 0; display: block; }
   .mock { position: fixed; top: 76px; right: 12px; z-index: 10; padding: 4px 10px; border-radius: 999px;
     background: #f5c518; color: #1a1a1a; font: 700 13px/1.2 inherit; font-family: inherit; letter-spacing: .04em;
@@ -49,6 +58,7 @@
   </div>
   <div class="sheet" id="sheet"></div>
   <div class="mock" id="mock"></div>
+  <div class="chip" id="chip"></div>
 <script>
   const m = window.MOCK;
   document.getElementById("bot").textContent = m.bot;
@@ -56,14 +66,31 @@
   document.getElementById("menu").textContent = m.menu_button;
   document.getElementById("mock").textContent = m.label;
   const feed = document.getElementById("feed");
-  for (const msg of m.messages) {
-    const d = document.createElement("div");
-    d.className = "msg " + (msg.from === "me" ? "me" : "bot");
-    d.textContent = msg.text;
-    feed.appendChild(d);
+  const sheet = document.getElementById("sheet");
+  // Telegram MarkdownV2 as sent: \x escapes, *bold*, _italic_. Text is escaped before any tag is added.
+  const esc = (t) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  function mdv2(text) {
+    const parts = text.split(/(\\.)/s);
+    let out = "";
+    for (const part of parts) out += part.startsWith("\\") && part.length === 2 ? "\u0000" + part[1].charCodeAt(0) + "\u0001" : part;
+    out = esc(out).replace(/\*([^*\n]+)\*/g, "<b>$1</b>").replace(/_([^_\n]+)_/g, "<i>$1</i>");
+    return out.replace(/\u0000(\d+)\u0001/g, (_, c) => esc(String.fromCharCode(Number(c))));
   }
+  window.addMessage = (from, text, markdown) => {
+    const d = document.createElement("div");
+    d.className = "msg " + (from === "me" ? "me" : "bot") + (markdown ? " long" : "");
+    if (markdown) d.innerHTML = mdv2(text); else d.textContent = text;
+    feed.appendChild(d);
+  };
+  for (const msg of m.messages) window.addMessage(msg.from, msg.text, false);
+  window.closeSheet = () => sheet.classList.remove("open");
+  window.showChip = (text) => {
+    const chip = document.getElementById("chip");
+    chip.textContent = text;
+    chip.classList.add("on");
+  };
+  window.hideChip = () => document.getElementById("chip").classList.remove("on");
   document.getElementById("menu").addEventListener("click", () => {
-    const sheet = document.getElementById("sheet");
     const frame = document.createElement("iframe");
     frame.src = m.app_url;
     frame.title = "Mini App";

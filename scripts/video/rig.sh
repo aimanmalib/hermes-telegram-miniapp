@@ -4,6 +4,7 @@
 #   scripts/video/rig.sh up       start the dashboard on loopback (idempotent)
 #   scripts/video/rig.sh down     stop the processes this script started
 #   scripts/video/rig.sh status   show whether the rig is up and what /health says
+#   scripts/video/rig.sh gateway  also start `hermes gateway run`, whose ticker fires due cron jobs and Asks
 #
 # Everything host-specific comes from the environment (see scripts/video/README.md):
 #   HERMES_BIN          hermes executable (a v0.23.0+ install)
@@ -15,6 +16,11 @@
 #   OUT_DIR             where the pid, log and dashboard token file go
 #   DASHBOARD_PORT      loopback port (default 9119, what the Vite dev proxy expects)
 #   RIG_READY_TIMEOUT   seconds to wait for /health (default 900; the first start builds the web UI)
+#   RIG_ADMIN_ID        optional made-up Telegram user id written as TELEGRAM_OWNER_ID, so Ask has an admin
+#                       chat to address
+#   BOT_API_PORT        loopback port of bot_api_stub.py (default 9180). With RIG_ADMIN_ID set, Hermes's
+#                       Telegram adapter is pointed at that stand-in (its supported base_url setting), so
+#                       Ask answers are really delivered, to $OUT_DIR/bot-api-messages.jsonl, not Telegram
 #
 # The dashboard session token is written to $OUT_DIR/dashboard-token (mode 0600). The Vite dev
 # server reads it through localStorage.devSessionToken; production builds ignore that key.
@@ -23,6 +29,7 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PLUGIN_NAME="telegram-app"
 PORT="${DASHBOARD_PORT:-9119}"
+BOT_PORT="${BOT_API_PORT:-9180}"
 HOST="127.0.0.1"
 
 need() {
@@ -62,13 +69,25 @@ plugins:
       settings:
         alerts_enabled: false
 EOF
+  if [ -n "${RIG_ADMIN_ID:-}" ]; then
+    printf 'platforms:\n  telegram:\n    enabled: true\n    base_url: http://%s:%s/bot\n' "$HOST" "$BOT_PORT" \
+      >> "$HERMES_HOME/config.yaml"
+  fi
   local var="${MODEL_API_KEY_VAR:-MODEL_API_KEY}" key
   key="$(sed -n "s/^${var}=//p" "$MODEL_API_KEY_FILE" | head -n 1 | sed -e 's/^["'\'']//' -e 's/["'\'']$//')"
   if [ -z "$key" ]; then
     echo "rig: $var not found in MODEL_API_KEY_FILE" >&2
     exit 2
   fi
-  (umask 077 && printf 'MODEL_API_KEY=%s\n' "$key" > "$HERMES_HOME/.env")
+  (
+    umask 077
+    printf 'MODEL_API_KEY=%s\n' "$key" > "$HERMES_HOME/.env"
+    if [ -n "${RIG_ADMIN_ID:-}" ]; then
+      # A made-up token: it only ever reaches the loopback stand-in.
+      printf 'TELEGRAM_OWNER_ID=%s\nTELEGRAM_BOT_TOKEN=100000000:rig-loopback-stand-in\n' "$RIG_ADMIN_ID" \
+        >> "$HERMES_HOME/.env"
+    fi
+  )
   if [ ! -s "$OUT_DIR/dashboard-token" ]; then
     (umask 077 && python3 -c 'import secrets; print(secrets.token_urlsafe(32))' > "$OUT_DIR/dashboard-token")
   fi
@@ -111,8 +130,42 @@ cmd_up() {
   echo
 }
 
+cmd_gateway() {
+  need HERMES_BIN HERMES_HOME OUT_DIR
+  if pid_alive "$OUT_DIR/gateway-run.pid"; then
+    echo "rig: gateway already running (pid $(cat "$OUT_DIR/gateway-run.pid"))"
+    return 0
+  fi
+  pid_alive "$OUT_DIR/dashboard.pid" || { echo "rig: run '$0 up' first" >&2; exit 1; }
+  if [ -n "${RIG_ADMIN_ID:-}" ] && ! pid_alive "$OUT_DIR/bot-api.pid"; then
+    (
+      cd "$OUT_DIR"
+      BOT_API_PORT="$BOT_PORT" BOT_API_LOG="$OUT_DIR/bot-api-messages.jsonl" \
+        setsid nohup python3 "$REPO/scripts/video/bot_api_stub.py" > "$OUT_DIR/bot-api.log" 2>&1 < /dev/null &
+      echo $! > "$OUT_DIR/bot-api.pid"
+    )
+  fi
+  (
+    cd "$OUT_DIR"
+    HERMES_HOME="$HERMES_HOME" setsid nohup "$HERMES_BIN" gateway run > "$OUT_DIR/gateway-run.log" 2>&1 < /dev/null &
+    echo $! > "$OUT_DIR/gateway-run.pid"
+  )
+  sleep 3
+  pid_alive "$OUT_DIR/gateway-run.pid" || { echo "rig: gateway exited:" >&2; tail -n 20 "$OUT_DIR/gateway-run.log" >&2; exit 1; }
+  echo "rig: gateway running (pid $(cat "$OUT_DIR/gateway-run.pid"))"
+}
+
 cmd_down() {
   need HERMES_HOME OUT_DIR
+  if pid_alive "$OUT_DIR/gateway-run.pid"; then
+    kill -- "-$(cat "$OUT_DIR/gateway-run.pid")" 2>/dev/null || kill "$(cat "$OUT_DIR/gateway-run.pid")"
+    echo "rig: gateway run stopped"
+  fi
+  rm -f "$OUT_DIR/gateway-run.pid"
+  if pid_alive "$OUT_DIR/bot-api.pid"; then
+    kill "$(cat "$OUT_DIR/bot-api.pid")" && echo "rig: bot api stand-in stopped"
+  fi
+  rm -f "$OUT_DIR/bot-api.pid"
   if pid_alive "$OUT_DIR/dashboard.pid"; then
     # setsid made the dashboard a session leader: signal its whole group (it re-executes a child).
     kill -- "-$(cat "$OUT_DIR/dashboard.pid")" 2>/dev/null || kill "$(cat "$OUT_DIR/dashboard.pid")"
@@ -154,8 +207,9 @@ case "${1:-}" in
   up) cmd_up ;;
   down) cmd_down ;;
   status) cmd_status ;;
+  gateway) cmd_gateway ;;
   *)
-    echo "usage: $0 up|down|status" >&2
+    echo "usage: $0 up|down|status|gateway" >&2
     exit 2
     ;;
 esac

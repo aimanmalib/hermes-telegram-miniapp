@@ -17,7 +17,7 @@ No VPN, password or new account: login checks the `initData` Telegram signs for 
 - **Telegram is the login.** Telegram signs who you are each time the app opens; there is no password to set, leak or rotate.
 - **Made for the phone you carry.** It follows Telegram's light or dark theme and uses its haptics, and alerts land in the chat you already have open.
 
-<p align="center"><img src="https://raw.githubusercontent.com/aimanmalib/hermes-telegram-miniapp/main/docs/demo.gif" width="320" alt="Ten-second clip: the Status, Cron and Sessions tabs running against a real Hermes v0.23.0"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/aimanmalib/hermes-telegram-miniapp/main/docs/demo.gif" width="320" alt="Ten-second clip: a question asked in the panel runs on a real Hermes v0.23.0 and the reply arrives in the chat (the chat screen is a labelled mock)"></p>
 
 Built for the Hermes Agent Plugin Hackathon by Nous Research, November 2026.
 

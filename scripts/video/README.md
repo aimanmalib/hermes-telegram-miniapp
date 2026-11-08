@@ -19,6 +19,8 @@ Scripts for recording the demo video against a real Hermes Agent, not the demo b
 | `OUT_DIR` | PID file, dashboard log, and `dashboard-token` (mode 0600). |
 | `DASHBOARD_PORT` | Loopback port, default `9119` (the Vite dev proxy target). |
 | `RIG_SUMMARY` | Where `seed.py` writes its summary, default `$OUT_DIR/rig.json`. |
+| `RIG_SUMMARY_ALIASES` | Optional `key=alias,...`: also write these summary keys under another name. |
+| `SEED_SUMMARY_ONLY` | `1` = seed nothing, only read the running rig back and rewrite the summary. |
 
 ## Use
 

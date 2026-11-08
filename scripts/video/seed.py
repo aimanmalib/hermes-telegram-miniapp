@@ -12,8 +12,12 @@ Then it reads the result back through the plugin API and writes a summary JSON
 
 Environment: ``HERMES_BIN``, ``HERMES_HOME``, ``OUT_DIR`` (as for rig.sh), optional
 ``DASHBOARD_PORT`` (default 9119), ``SEED_FILE`` (default: seed.json next to this file),
-``SEED_SKIP_SESSIONS=1`` to only (re)create cron jobs. Re-running does not duplicate cron jobs
-(matched by name); sessions are added again.
+``SEED_SKIP_SESSIONS=1`` to only (re)create cron jobs, ``SEED_SUMMARY_ONLY=1`` to only read the
+running rig back and rewrite the summary. Re-running does not duplicate cron jobs (matched by
+name); sessions are added again.
+
+``RIG_SUMMARY_ALIASES`` copies summary keys under extra names for an outside checker that
+expects its own field names, as comma-separated ``key=alias`` pairs (``cron_failed=failed_jobs``).
 """
 
 from __future__ import annotations
@@ -119,6 +123,16 @@ def summary(api: Plugin) -> dict:
     }
 
 
+def with_aliases(result: dict, spec: str) -> dict:
+    out = dict(result)
+    for pair in filter(None, (p.strip() for p in spec.split(","))):
+        key, sep, alias = (part.strip() for part in pair.partition("="))
+        if not sep or not key or not alias or key not in result:
+            sys.exit(f"seed: bad RIG_SUMMARY_ALIASES entry {pair!r} (want key=alias, key from the summary)")
+        out[alias] = result[key]
+    return out
+
+
 def main() -> None:
     home = env("HERMES_HOME")
     out_dir = Path(env("OUT_DIR"))
@@ -126,11 +140,12 @@ def main() -> None:
     api = Plugin(os.environ.get("DASHBOARD_PORT", "9119"), (out_dir / "dashboard-token").read_text().strip())
     api.call("GET", "/health")  # fail early when the rig is down
 
-    if os.environ.get("SEED_SKIP_SESSIONS") != "1":
-        seed_sessions(seed["sessions"], home)
-    seed_cron(seed["cron"], api, home)
+    if os.environ.get("SEED_SUMMARY_ONLY") != "1":
+        if os.environ.get("SEED_SKIP_SESSIONS") != "1":
+            seed_sessions(seed["sessions"], home)
+        seed_cron(seed["cron"], api, home)
 
-    result = summary(api)
+    result = with_aliases(summary(api), os.environ.get("RIG_SUMMARY_ALIASES", ""))
     target = Path(os.environ.get("RIG_SUMMARY", out_dir / "rig.json"))
     target.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result))

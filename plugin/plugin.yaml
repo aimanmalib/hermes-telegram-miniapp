@@ -25,3 +25,11 @@ config_schema:
     type: bool
     default: true
     description: "Start the alerts watcher that DMs the first admin about cron failures, error-log bursts and daily spend"
+  ask_max_chars:
+    type: int
+    default: 2000
+    description: "Longest question the Ask tab accepts (1-20000 characters)"
+  ask_max_pending:
+    type: int
+    default: 1
+    description: "How many Ask questions may wait or run at once (1-10); a further one is refused until one finishes"

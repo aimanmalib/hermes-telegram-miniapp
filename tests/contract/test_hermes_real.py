@@ -393,3 +393,49 @@ def test_other_token_credentials_cannot_log_in(hermes):
     )
     assert r.status_code == 403
     assert "session_token" not in r.text
+
+
+def test_ask_once_job_delivers_to_telegram(hermes, monkeypatch):
+    """Ask Hermes end to end inside real Hermes, with only the model and the Telegram send replaced.
+
+    ``POST /ask`` stores a one-shot agent job; Hermes's own cron tick claims it, runs it once,
+    hands the answer to the Telegram delivery queue for the admin's chat, and marks it completed.
+    """
+    import cron.delivery_queue as delivery_queue
+    import cron.jobs as jobs
+    import cron.scheduler as scheduler
+
+    headers = _auth(hermes)
+    r = hermes.client.post(f"{PREFIX}/ask", headers=headers, json={"prompt": "contract ask: what is 2+2?"})
+    assert r.status_code == 200, r.text
+    job_id = r.json()["job"]["id"]
+    stored = jobs.get_job(job_id)
+    assert stored["schedule"]["kind"] == "once" and stored["repeat"]["times"] == 1, stored
+    assert stored["deliver"] == f"telegram:{hermes.h.OWNER_ID}"
+    assert not stored.get("script") and not stored.get("workdir") and not stored.get("no_agent")
+
+    r = hermes.client.post(f"{PREFIX}/ask", headers=headers, json={"prompt": "a second question"})
+    assert r.status_code == 409 and r.json()["detail"]["code"] == "busy"
+
+    ran, sent = [], []
+
+    def fake_run_job(job, **_kw):  # the agent turn: no model in CI
+        ran.append(job["id"])
+        return True, "output", "4", None
+
+    def fake_enqueue(execution_id, job, content, **_kw):  # the Telegram send
+        sent.append((job["id"], job.get("deliver"), content))
+        return {"status": "delivered"}
+
+    monkeypatch.setattr(scheduler, "run_job", fake_run_job)
+    monkeypatch.setattr(delivery_queue, "enqueue", fake_enqueue)
+    scheduler.tick(verbose=False, sync=True)
+
+    assert ran == [job_id]
+    assert sent == [(job_id, f"telegram:{hermes.h.OWNER_ID}", "4")]
+    done = jobs.get_job(job_id)
+    assert done["repeat"]["completed"] == 1 and done["state"] == "completed", done
+    # Finished: the next question is accepted.
+    r = hermes.client.post(f"{PREFIX}/ask", headers=headers, json={"prompt": "a second question"})
+    assert r.status_code == 200, r.text
+    assert hermes.client.post(f"{PREFIX}/ask", json={"prompt": "no token"}).status_code == 401

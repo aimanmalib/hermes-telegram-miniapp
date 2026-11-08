@@ -65,6 +65,7 @@ _ROUTE_MODULES = (
     "routes_knowledge",
     "routes_logs",
     "routes_send",
+    "routes_ask",
     "routes_alerts",
 )
 

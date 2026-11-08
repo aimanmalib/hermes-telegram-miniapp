@@ -88,5 +88,33 @@ def alerts_enabled() -> bool:
     return value is None or bool(value)
 
 
+# Ask Hermes limits (plugin settings; the bounds keep a typo from opening the route wide).
+ASK_MAX_CHARS_DEFAULT, ASK_MAX_CHARS_BOUNDS = 2000, (1, 20_000)
+ASK_MAX_PENDING_DEFAULT, ASK_MAX_PENDING_BOUNDS = 1, (1, 10)
+
+
+def _int_setting(key: str, default: int, bounds) -> int:
+    value = compat.plugin_setting(key, default)
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        _log.warning("telegram-app: setting %s is not a number; using %s", key, default)
+        return default
+    if isinstance(value, bool) or not bounds[0] <= number <= bounds[1]:
+        _log.warning("telegram-app: setting %s is outside %s..%s; using %s", key, bounds[0], bounds[1], default)
+        return default
+    return number
+
+
+def ask_max_chars() -> int:
+    """The plugin setting ``ask_max_chars``: the longest question Ask Hermes accepts."""
+    return _int_setting("ask_max_chars", ASK_MAX_CHARS_DEFAULT, ASK_MAX_CHARS_BOUNDS)
+
+
+def ask_max_pending() -> int:
+    """The plugin setting ``ask_max_pending``: how many Asks may wait or run at once."""
+    return _int_setting("ask_max_pending", ASK_MAX_PENDING_DEFAULT, ASK_MAX_PENDING_BOUNDS)
+
+
 def max_age() -> int:
     return tg_auth.parse_max_age(env("TELEGRAM_INITDATA_MAX_AGE"))

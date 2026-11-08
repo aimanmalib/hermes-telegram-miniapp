@@ -5,6 +5,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `POST /ask`: Ask Hermes. Queues one agent run whose answer Hermes delivers to an admin's Telegram chat: a one-shot
+  cron job (`repeat=1`, `deliver=telegram:<admin id>`), prompt only. New plugin settings `ask_max_chars` (default
+  2000) and `ask_max_pending` (default 1). Covered by a contract test against real Hermes. See
+  [decision 0008](docs/decisions/0008-ask-hermes.md).
+
 ## [0.6.1] - 2026-11-08
 
 Web and docs only. The plugin code is unchanged from 0.6.0; only its version lines moved.

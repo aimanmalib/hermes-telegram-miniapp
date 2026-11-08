@@ -12,3 +12,4 @@ Add a new file with the next number when a decision changes; do not rewrite an a
 | [0005](0005-login-stays-on-public-paths.md) | Login stays on the public-path set; Hermes v0.23.0 token seam not used | Superseded by 0006 |
 | [0006](0006-login-through-the-token-seam.md) | Login goes through Hermes's token-auth seam (`initData` as the bearer) | Accepted |
 | [0007](0007-admin-list-is-plugin-owned.md) | Admin list is plugin-owned; `TELEGRAM_ALLOWED_USERS` never grants login | Accepted |
+| [0008](0008-ask-hermes.md) | Ask Hermes is a one-shot cron job delivered to an admin's chat | Accepted |

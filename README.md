@@ -7,9 +7,19 @@
 <p align="center"><b>A phone control panel for Hermes Agent, inside Telegram.</b> · <i>Panel kawalan telefon untuk Hermes Agent, dalam Telegram.</i><br>
 <a href="#setup">setup</a> · <a href="#demo-mode">demo mode</a> · <a href="https://github.com/aimanmalib/hermes-telegram-miniapp/blob/main/SECURITY-REVIEW.md">security review</a> · <a href="https://github.com/aimanmalib/hermes-telegram-miniapp/blob/main/CHANGELOG.md">changelog</a> · Built in Malaysia by <a href="https://aimanmalib.com">Aiman Malib</a></p>
 
-A phone control panel for [Hermes Agent](https://github.com/NousResearch/hermes-agent) that opens inside Telegram: check the server, browse sessions, run and edit cron jobs, read logs and skills, all from your bot's menu button.
+Run, stop and edit your [Hermes Agent](https://github.com/NousResearch/hermes-agent) cron jobs, check spend, read sessions and logs, and get a Telegram alert when a run fails, all from your bot's menu button.
 
-It ships as a Hermes **dashboard plugin** (backend routes under `/api/plugins/telegram-app/`) plus a small React app served next to it. Nothing in the Hermes repository is patched or overlaid.
+No VPN, password or new account: login checks the `initData` Telegram signs for the Mini App against an admin list that refuses everyone until you fill it in, and only `/api/plugins/telegram-app/*` needs to face the internet. It ships as a Hermes **dashboard plugin** plus a small React app; nothing in Hermes is patched. CI installs a real Hermes v0.23.0 and drives the plugin through its dashboard on every change, the [security review](SECURITY-REVIEW.md) is public, and there are 9 tagged releases.
+
+### Why a Mini App, not the dashboard on your phone
+
+- **Nothing new to expose.** The Hermes dashboard is meant for loopback; publishing it means a VPN or a login proxy. This panel publishes one plugin path, and only for Telegram ids you list.
+- **Telegram is the login.** Telegram signs who you are each time the app opens; there is no password to set, leak or rotate.
+- **Made for the phone you carry.** It follows Telegram's light or dark theme and uses its haptics, and alerts land in the chat you already have open.
+
+<p align="center"><img src="https://raw.githubusercontent.com/aimanmalib/hermes-telegram-miniapp/main/docs/demo.gif" width="320" alt="Ten-second clip: the Status, Cron and Sessions tabs running against a real Hermes v0.23.0"></p>
+
+Built for the Hermes Agent Plugin Hackathon by Nous Research, November 2026.
 
 [Bahasa Melayu ↓](#bahasa-melayu)
 
@@ -265,7 +275,7 @@ The evidence that it works is meant to be checkable:
 - The test suite, run with `python -m pytest` and `cd web && npm test`.
 - CI on Python 3.11 and 3.12, and Node 22 for every pull request.
 - Contract tests in CI that install real Hermes v0.23.0 and call the plugin through the Hermes dashboard app.
-- 7 tagged releases, with notes in [CHANGELOG.md](CHANGELOG.md).
+- 9 tagged releases, with notes in [CHANGELOG.md](CHANGELOG.md).
 
 ## Bahasa Melayu
 

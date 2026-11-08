@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 import time
 import types
@@ -125,6 +126,38 @@ def test_admins_setting_extends_the_admin_list(plugin, monkeypatch):
     monkeypatch.delenv("TELEGRAM_OWNER_ID")
     plugin.config["admins"] = ["1002"]
     assert _login(plugin.client, other).status_code == 200
+
+
+def test_alerts_enabled_setting(plugin, monkeypatch, caplog):
+    settings = sys.modules["hermes_tma_settings"]
+    assert settings.alerts_enabled() is False  # the fixture's setting
+    del plugin.config["alerts_enabled"]
+    assert settings.alerts_enabled() is True  # default
+    for value, expected in ((True, True), ("true", True), ("off", False), ("false", False), ("0", False), (0, False)):
+        plugin.config["alerts_enabled"] = value
+        assert settings.alerts_enabled() is expected, value
+    # The old env still turns alerts off for one release, with a deprecation warning.
+    plugin.config["alerts_enabled"] = True
+    monkeypatch.setenv("TELEGRAM_APP_ALERTS_DISABLED", "1")
+    with caplog.at_level(logging.WARNING, logger="hermes.plugin.telegram-app"):
+        assert settings.alerts_enabled() is False
+    assert "TELEGRAM_APP_ALERTS_DISABLED is deprecated" in caplog.text
+
+
+def test_alerts_route_starts_the_watcher_only_when_enabled(plugin, monkeypatch):
+    compat = sys.modules["hermes_tma_hermes_compat"]
+    started: list = []
+    monkeypatch.setattr(sys.modules["hermes_tma_alerts"], "ensure_started", lambda: started.append(1))
+    for value, env, expected in ((False, None, 0), (True, None, 1), (True, "1", 0)):
+        started.clear()
+        plugin.config["alerts_enabled"] = value
+        if env is None:
+            monkeypatch.delenv("TELEGRAM_APP_ALERTS_DISABLED", raising=False)
+        else:
+            monkeypatch.setenv("TELEGRAM_APP_ALERTS_DISABLED", env)
+        monkeypatch.delitem(sys.modules, "hermes_tma_routes_alerts")
+        compat.load_sibling("routes_alerts")
+        assert len(started) == expected, (value, env)
 
 
 def test_send_box_writes_to_admins_only(plugin, monkeypatch):

@@ -79,10 +79,9 @@ def tg_auth():
 @pytest.fixture
 def plugin(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.setenv("TELEGRAM_APP_ALERTS_DISABLED", "1")
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "123456789:AAE-known-answer-test-token")
     monkeypatch.setenv("TELEGRAM_OWNER_ID", str(OWNER_ID))
-    for var in ("TELEGRAM_ALLOWED_USERS", "TELEGRAM_INITDATA_MAX_AGE", "TELEGRAM_BOT_ID"):
+    for var in ("TELEGRAM_ALLOWED_USERS", "TELEGRAM_INITDATA_MAX_AGE", "TELEGRAM_BOT_ID", "TELEGRAM_APP_ALERTS_DISABLED"):
         monkeypatch.delenv(var, raising=False)
 
     ws = types.ModuleType("hermes_cli.web_server")
@@ -100,7 +99,9 @@ def plugin(tmp_path, monkeypatch):
             monkeypatch.delitem(sys.modules, name)
 
     entry = load_entry()
-    config: dict = {}  # plugins.entries.telegram-app.settings, read through ctx.get_config as in Hermes
+    # plugins.entries.telegram-app.settings, read through ctx.get_config as in Hermes.
+    # No alerts watcher thread in unit tests.
+    config: dict = {"alerts_enabled": False}
     ctx = types.SimpleNamespace(register_dashboard_auth_provider=da.providers.append, get_config=config.get)
     entry.register(ctx)
     mod = load_module("plugin_api", "hermes_dashboard_plugin_telegram_app_test")

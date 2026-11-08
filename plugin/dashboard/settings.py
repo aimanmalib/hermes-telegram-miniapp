@@ -6,6 +6,8 @@ Every credential goes through ``hermes_compat.secret`` (Hermes's credential rout
 from __future__ import annotations
 
 import json
+import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -13,6 +15,7 @@ from typing import List
 
 compat = sys.modules["hermes_tma_hermes_compat"]  # loaded first by plugin_api.py
 tg_auth = compat.load_sibling("tg_auth")
+_log = logging.getLogger("hermes.plugin.telegram-app")
 
 START_TIME = time.time()
 
@@ -61,6 +64,28 @@ def admin_user_ids() -> List[str]:
         if uid not in ids:
             ids.append(uid)
     return ids
+
+
+_FALSE_WORDS = {"0", "false", "no", "off"}
+_DEPRECATED_ALERTS_ENV = "TELEGRAM_APP_ALERTS_DISABLED"
+
+
+def alerts_enabled() -> bool:
+    """The plugin setting ``alerts_enabled`` (default true): whether the alerts watcher starts.
+
+    ``TELEGRAM_APP_ALERTS_DISABLED=1`` still turns alerts off for this release, with a
+    deprecation warning; it is dropped in the next one (docs/decisions/0007).
+    """
+    if os.environ.get(_DEPRECATED_ALERTS_ENV, "") == "1":
+        _log.warning(
+            "telegram-app: %s is deprecated; set plugins.entries.telegram-app.settings.alerts_enabled: false instead",
+            _DEPRECATED_ALERTS_ENV,
+        )
+        return False
+    value = compat.plugin_setting("alerts_enabled", True)
+    if isinstance(value, str):
+        return value.strip().lower() not in _FALSE_WORDS
+    return value is None or bool(value)
 
 
 def max_age() -> int:

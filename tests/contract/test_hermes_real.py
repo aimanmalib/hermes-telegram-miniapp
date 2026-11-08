@@ -36,7 +36,11 @@ REPO = Path(__file__).resolve().parents[2]
 PLUGIN_NAME = "telegram-app"
 # Turns on Hermes's bundled drain provider, so a core token route exists (tests at the end).
 CONFIG_ADMIN_ID = 515151  # synthetic id granted through plugins.entries.telegram-app.settings.admins
-BASE_CONFIG = f"plugins:\n  enabled:\n    - {PLUGIN_NAME}\n"
+# alerts_enabled: false keeps the alerts watcher thread off; test_alerts_setting_applies_at_mount checks it.
+BASE_CONFIG = (
+    f"plugins:\n  enabled:\n    - {PLUGIN_NAME}\n"
+    f"  entries:\n    {PLUGIN_NAME}:\n      settings:\n        alerts_enabled: false\n"
+)
 CHATTER_ID = 616161  # synthetic id that is only allowed to chat with the bot
 DRAIN_SECRET = "contract-Drain-0123456789-abcdefghijklmnopqrstuvwxyz"
 
@@ -91,11 +95,10 @@ def hermes(tmp_path_factory):
         "HERMES_HOME": str(home),
         "TELEGRAM_BOT_TOKEN": h.BOT_TOKEN,
         "TELEGRAM_OWNER_ID": str(h.OWNER_ID),
-        "TELEGRAM_APP_ALERTS_DISABLED": "1",
         "HERMES_DASHBOARD_DRAIN_SECRET": DRAIN_SECRET,
     }
     with pytest.MonkeyPatch.context() as mp:
-        for key in ("TELEGRAM_ALLOWED_USERS", "TELEGRAM_INITDATA_MAX_AGE", "TELEGRAM_BOT_ID"):
+        for key in ("TELEGRAM_ALLOWED_USERS", "TELEGRAM_INITDATA_MAX_AGE", "TELEGRAM_BOT_ID", "TELEGRAM_APP_ALERTS_DISABLED"):
             mp.delenv(key, raising=False)
         for key, value in env.items():
             mp.setenv(key, value)
@@ -104,12 +107,13 @@ def hermes(tmp_path_factory):
             if name.startswith("hermes_tma_") or name.startswith("hermes_dashboard_plugin_telegram_app"):
                 mp.delitem(sys.modules, name)
 
-        import hermes_cli.web_server as ws
         from fastapi.testclient import TestClient
         from hermes_cli.plugins import discover_plugins
 
-        # ``hermes dashboard`` runs plugin discovery before serving, so auth providers register first.
+        # ``hermes dashboard`` runs plugin discovery before it imports the web server, so auth
+        # providers register and ``register`` binds the plugin settings before routes mount.
         discover_plugins()
+        import hermes_cli.web_server as ws
 
         # No ``with``: the app's lifespan starts Hermes background workers this test does not need.
         client = TestClient(ws.app)
@@ -271,14 +275,22 @@ def test_admins_plugin_setting_grants_login(hermes):
     admin = hermes.h.make_init_data(auth_date=int(time.time()), user={"id": CONFIG_ADMIN_ID, "first_name": "Cfg"})
     assert _bearer_login(hermes, admin).status_code == 401
     try:
-        _write_config(hermes, BASE_CONFIG + f"  entries:\n    {PLUGIN_NAME}:\n      settings:\n"
-                      f"        admins: [{CONFIG_ADMIN_ID}]\n")
+        _write_config(hermes, BASE_CONFIG + f"        admins: [{CONFIG_ADMIN_ID}]\n")
         r = _bearer_login(hermes, admin)
         assert r.status_code == 200, r.text
         assert r.json()["user"]["id"] == CONFIG_ADMIN_ID
     finally:
         _write_config(hermes, BASE_CONFIG)
     assert _bearer_login(hermes, admin).status_code == 401
+
+
+def test_alerts_setting_applies_at_mount(hermes):
+    # alerts_enabled is read when the dashboard mounts the alerts route; a context bound too late
+    # would read the default (true) and start the watcher despite the config.
+    assert hermes.compat.plugin_setting("alerts_enabled", True) is False
+    r = hermes.client.get(f"{PREFIX}/alerts", headers=_auth(hermes))
+    assert r.status_code == 200, r.text
+    assert r.json()["running"] is False
 
 
 def test_status(hermes):

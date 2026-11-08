@@ -21,3 +21,7 @@ config_schema:
     type: list
     default: []
     description: "Extra Telegram user ids allowed to log in to the Mini App and receive alerts, besides TELEGRAM_OWNER_ID"
+  alerts_enabled:
+    type: bool
+    default: true
+    description: "Start the alerts watcher that DMs the first admin about cron failures, error-log bursts and daily spend"

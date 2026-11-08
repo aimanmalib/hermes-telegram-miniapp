@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import sys
 from typing import Optional
 
@@ -11,18 +10,21 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 compat = sys.modules["hermes_tma_hermes_compat"]  # loaded first by plugin_api.py
+settings = compat.load_sibling("settings")
 router = APIRouter()
 _log = logging.getLogger("hermes.plugin.telegram-app")
 
-# Background thread that DMs the owner about cron failures, error-log bursts
-# and daily spend.
+# Background thread that DMs the first admin about cron failures, error-log
+# bursts and daily spend. Decided once, when the dashboard mounts this route:
+# ``hermes dashboard`` runs plugin discovery (``register`` binds the plugin
+# settings) before it imports the web server, so ``alerts_enabled`` is read here.
 try:
     _alerts = compat.load_sibling("alerts")
 except Exception as _exc:  # pragma: no cover - defensive
     _alerts = None
     _log.warning("telegram-app: alerts module unavailable: %s", _exc)
 
-if _alerts is not None and os.environ.get("TELEGRAM_APP_ALERTS_DISABLED", "") != "1":
+if _alerts is not None and settings.alerts_enabled():
     try:
         _alerts.ensure_started()
     except Exception as _exc:

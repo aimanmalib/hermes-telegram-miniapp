@@ -100,12 +100,13 @@ def plugin(tmp_path, monkeypatch):
             monkeypatch.delitem(sys.modules, name)
 
     entry = load_entry()
-    ctx = types.SimpleNamespace(register_dashboard_auth_provider=da.providers.append)
+    config: dict = {}  # plugins.entries.telegram-app.settings, read through ctx.get_config as in Hermes
+    ctx = types.SimpleNamespace(register_dashboard_auth_provider=da.providers.append, get_config=config.get)
     entry.register(ctx)
     mod = load_module("plugin_api", "hermes_dashboard_plugin_telegram_app_test")
     app = FastAPI()
     app.include_router(mod.router, prefix=PREFIX)
-    return types.SimpleNamespace(mod=mod, ws=ws, da=da, token_auth=token_auth, client=TestClient(app))
+    return types.SimpleNamespace(mod=mod, ws=ws, da=da, token_auth=token_auth, config=config, client=TestClient(app))
 
 
 def stub_dashboard_auth():

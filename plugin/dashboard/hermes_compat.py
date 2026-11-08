@@ -12,7 +12,8 @@ file (and the contract tests that exercise it):
 * ``hermes_cli.web_server.app.version`` — the running Hermes release;
 * ``cron.jobs`` — probed for optional features (``capabilities``);
 * ``agent.secret_scope.get_secret`` — Hermes's credential route;
-* ``hermes_constants.get_hermes_home`` — the Hermes home directory.
+* ``hermes_constants.get_hermes_home`` — the Hermes home directory;
+* ``PluginContext.get_config`` — the plugin's own settings in ``config.yaml``.
 
 The module has no import-time side effects; ``plugin/__init__.py`` registers
 the login provider and route once.
@@ -66,6 +67,32 @@ def hermes_home() -> Path:
     except Exception:
         env = os.environ.get("HERMES_HOME", "").strip()
         return Path(env).expanduser() if env else Path.home() / ".hermes"
+
+
+# ---------------------------------------------------------------------------
+# Plugin settings: ``plugins.entries.<plugin id>.settings.<key>`` in config.yaml,
+# read through the PluginContext Hermes (v0.23.0+) passes to ``register``. The
+# context reads config.yaml on every call, so an edit applies without a restart.
+# With no context bound (unit tests, a register that failed) every setting reads
+# as its default, which for the admin list means "no extra admins".
+# ---------------------------------------------------------------------------
+_plugin_ctx = None
+
+
+def bind_plugin_context(ctx) -> None:
+    global _plugin_ctx
+    _plugin_ctx = ctx
+
+
+def plugin_setting(key: str, default=None):
+    get = getattr(_plugin_ctx, "get_config", None)
+    if get is None:
+        return default
+    try:
+        return get(key, default)
+    except Exception as exc:
+        _log.warning("telegram-app: cannot read plugin setting %s (%s); using the default", key, type(exc).__name__)
+        return default
 
 
 # ---------------------------------------------------------------------------

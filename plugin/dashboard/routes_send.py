@@ -36,16 +36,16 @@ async def send_command(body: _SendCommandBody):
     if not token:
         raise HTTPException(status_code=500, detail="Bot token not configured")
 
-    allowed = settings.allowed_user_ids()
+    allowed = settings.admin_user_ids()
     if not allowed:
         raise HTTPException(
             status_code=400,
-            detail="No TELEGRAM_OWNER_ID / TELEGRAM_ALLOWED_USERS configured",
+            detail="No Mini App admin configured (TELEGRAM_OWNER_ID)",
         )
     chat_id = body.chat_id or int(allowed[0])
-    # The bot only ever writes to allowlisted users' DMs, never an arbitrary chat.
+    # The bot only ever writes to an admin's DM, never an arbitrary chat.
     if str(chat_id) not in allowed:
-        raise HTTPException(status_code=403, detail="chat_id is not an allowed user")
+        raise HTTPException(status_code=403, detail="chat_id is not a Mini App admin")
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = json.dumps({"chat_id": chat_id, "text": body.text}).encode("utf-8")

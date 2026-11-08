@@ -126,12 +126,12 @@ def test_update_settings_clamps_and_ignores_unknown(alerts):
     assert alerts.get_settings()["poll_interval_sec"] == 15
 
 
-def test_bot_chat_uses_owner_then_allowed(alerts, monkeypatch):
+def test_bot_chat_is_the_first_admin_only(alerts, monkeypatch):
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "1:x")
     monkeypatch.delenv("TELEGRAM_OWNER_ID", raising=False)
-    monkeypatch.setenv("TELEGRAM_ALLOWED_USERS", "abc, 77")
-    assert alerts._bot_token_and_chat() == ("1:x", 77)
-    monkeypatch.setenv("TELEGRAM_OWNER_ID", "55")
+    monkeypatch.setenv("TELEGRAM_ALLOWED_USERS", "77")  # chat allowlist: never an alert recipient
+    assert alerts._bot_token_and_chat() is None
+    monkeypatch.setenv("TELEGRAM_OWNER_ID", "abc, 55")
     assert alerts._bot_token_and_chat() == ("1:x", 55)
 
 

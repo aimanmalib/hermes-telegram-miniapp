@@ -28,6 +28,7 @@ def _compat():
 
 def register(ctx) -> None:
     compat = _compat()
+    compat.bind_plugin_context(ctx)  # plugin settings (the admins list) are read through ctx.get_config
     try:
         tg_token = compat.load_sibling("tg_token")
         provider = tg_token.provider()

@@ -212,19 +212,12 @@ def _compat():
 
 
 def _bot_token_and_chat() -> Optional[tuple[str, int]]:
-    """Bot token + first allowed chat id, through Hermes's credential route."""
-    secret = _compat().secret
-    token = secret("TELEGRAM_BOT_TOKEN")
+    """Bot token + the first Mini App admin (``settings.admin_user_ids``), the only chat alerts go to."""
+    token = _compat().secret("TELEGRAM_BOT_TOKEN")
     if not token:
         return None
-    raw = ",".join(x for x in (secret("TELEGRAM_OWNER_ID"), secret("TELEGRAM_ALLOWED_USERS")) if x)
-    for piece in raw.split(","):
-        piece = piece.strip()
-        try:
-            return token, int(piece)
-        except ValueError:
-            continue
-    return None
+    admins = _compat().load_sibling("settings").admin_user_ids()
+    return (token, int(admins[0])) if admins else None
 
 
 def _send_telegram(text: str) -> bool:

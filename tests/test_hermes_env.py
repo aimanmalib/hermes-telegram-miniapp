@@ -98,7 +98,7 @@ def test_unscoped_secret_error_counts_as_unset(clean, monkeypatch):
 
 
 def test_alerts_read_through_get_secret(clean, monkeypatch):
-    fake_secret_scope(monkeypatch, {"TELEGRAM_BOT_TOKEN": "1:x", "TELEGRAM_ALLOWED_USERS": "abc, 77"})
+    fake_secret_scope(monkeypatch, {"TELEGRAM_BOT_TOKEN": "1:x", "TELEGRAM_OWNER_ID": "abc, 77"})
     alerts = load_module("alerts", "tma_test_alerts_scope")
     assert alerts._bot_token_and_chat() == ("1:x", 77)
 

@@ -79,7 +79,7 @@ async def auth_verify(body: _AuthVerifyBody, request: Request, response: Respons
         user = tg_auth.verify_init_data(
             body.init_data,
             bot_token=settings.bot_token(),
-            allowed_user_ids=settings.allowed_user_ids(),
+            allowed_user_ids=settings.admin_user_ids(),
             max_age_sec=settings.max_age(),
             bot_id=settings.env("TELEGRAM_BOT_ID") or None,
         )
@@ -87,7 +87,7 @@ async def auth_verify(body: _AuthVerifyBody, request: Request, response: Respons
         if exc.reason in ("bot_token_unset", "allowlist_unset"):
             _log.error(
                 "telegram-app: refusing login, %s (set TELEGRAM_BOT_TOKEN and "
-                "TELEGRAM_OWNER_ID or TELEGRAM_ALLOWED_USERS)", exc.reason,
+                "TELEGRAM_OWNER_ID or the plugin setting admins)", exc.reason,
             )
             raise HTTPException(status_code=503, detail="Mini App login is not configured")
         _limiter.record_failure(key)

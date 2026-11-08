@@ -3,8 +3,8 @@ version: 0.5.3
 manifest_version: 2
 description: >-
   Telegram Mini App control panel for Hermes Agent: live status, sessions, cron, logs and alerts on your phone,
-  behind verified Telegram login (initData HMAC, Ed25519 fallback) and an allowlist that refuses everyone until
-  TELEGRAM_OWNER_ID or TELEGRAM_ALLOWED_USERS is set. The backend is the dashboard plugin in dashboard/; the phone
+  behind verified Telegram login (initData HMAC, Ed25519 fallback) and a plugin-owned admin list that refuses
+  everyone until TELEGRAM_OWNER_ID (or the admins setting) is set; being allowed to chat with the bot never grants it. The backend is the dashboard plugin in dashboard/; the phone
   app in the repository's web/ folder is built and served separately.
 author: Muhammad Aiman (aimanmalib), Sasa Teguh
 license: MIT
@@ -16,3 +16,8 @@ requires_env:
     description: "Token of the Telegram bot that opens the Mini App (the same bot Hermes uses for Telegram)"
     url: "https://core.telegram.org/bots#how-do-i-create-a-bot"
     secret: true
+config_schema:
+  admins:
+    type: list
+    default: []
+    description: "Extra Telegram user ids allowed to log in to the Mini App and receive alerts, besides TELEGRAM_OWNER_ID"

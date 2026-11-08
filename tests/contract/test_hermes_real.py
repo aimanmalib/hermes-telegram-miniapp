@@ -35,6 +35,8 @@ PREFIX = "/api/plugins/telegram-app"
 REPO = Path(__file__).resolve().parents[2]
 PLUGIN_NAME = "telegram-app"
 # Turns on Hermes's bundled drain provider, so a core token route exists (tests at the end).
+CONFIG_ADMIN_ID = 515151  # synthetic id granted through plugins.entries.telegram-app.settings.admins
+CHATTER_ID = 616161  # synthetic id that is only allowed to chat with the bot
 DRAIN_SECRET = "contract-Drain-0123456789-abcdefghijklmnopqrstuvwxyz"
 
 
@@ -78,7 +80,11 @@ def hermes(tmp_path_factory):
         home / "plugins" / PLUGIN_NAME,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
-    (home / "config.yaml").write_text(f"plugins:\n  enabled:\n    - {PLUGIN_NAME}\n", encoding="utf-8")
+    (home / "config.yaml").write_text(
+        f"plugins:\n  enabled:\n    - {PLUGIN_NAME}\n"
+        f"  entries:\n    {PLUGIN_NAME}:\n      settings:\n        admins: [{CONFIG_ADMIN_ID}]\n",
+        encoding="utf-8",
+    )
     (home / "logs").mkdir()
     (home / "logs" / "agent.log").write_text(
         "2026-01-01 00:00:00,000 INFO contract-test: marker line\n", encoding="utf-8"
@@ -232,6 +238,35 @@ def test_login_rejects_forged_and_unlisted_users(hermes):
     )
     assert r.status_code == 403
     assert "session_token" not in r.text
+
+
+def _bearer_login(hermes, init_data):
+    return hermes.client.post(
+        f"{PREFIX}/auth/verify", json={"init_data": init_data}, headers={"Authorization": f"Bearer {init_data}"}
+    )
+
+
+def test_allowed_users_do_not_grant_login(hermes):
+    now = int(time.time())
+    chatter = hermes.h.make_init_data(auth_date=now, user={"id": CHATTER_ID, "first_name": "Chat"})
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("TELEGRAM_ALLOWED_USERS", f"{CHATTER_ID},{hermes.h.OWNER_ID}")
+        r = _bearer_login(hermes, chatter)
+        assert r.status_code in (401, 403)
+        assert "session_token" not in r.text
+        # Only the chat allowlist set: no admin list, so Hermes answers 503 and hands out no token.
+        mp.delenv("TELEGRAM_OWNER_ID")
+        r = _bearer_login(hermes, hermes.h.make_init_data(auth_date=now))
+        assert r.status_code == 503
+        assert "session_token" not in r.text
+
+
+def test_admins_plugin_setting_grants_login(hermes):
+    # config.yaml plugins.entries.telegram-app.settings.admins, read through PluginContext.get_config.
+    admin = hermes.h.make_init_data(auth_date=int(time.time()), user={"id": CONFIG_ADMIN_ID, "first_name": "Cfg"})
+    r = _bearer_login(hermes, admin)
+    assert r.status_code == 200, r.text
+    assert r.json()["user"]["id"] == CONFIG_ADMIN_ID
 
 
 def test_status(hermes):

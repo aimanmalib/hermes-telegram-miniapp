@@ -40,7 +40,7 @@ def verify_bearer(token: str) -> Optional[str]:
         user = tg_auth.verify_init_data(
             token,
             bot_token=settings.bot_token(),
-            allowed_user_ids=settings.allowed_user_ids(),
+            allowed_user_ids=settings.admin_user_ids(),
             max_age_sec=settings.max_age(),
             bot_id=settings.env("TELEGRAM_BOT_ID") or None,
         )
@@ -48,7 +48,7 @@ def verify_bearer(token: str) -> Optional[str]:
         if exc.reason in ("bot_token_unset", "allowlist_unset"):
             _log.error(
                 "telegram-app: refusing login, %s (set TELEGRAM_BOT_TOKEN and "
-                "TELEGRAM_OWNER_ID or TELEGRAM_ALLOWED_USERS)", exc.reason,
+                "TELEGRAM_OWNER_ID or the plugin setting admins)", exc.reason,
             )
             raise compat.LoginNotConfigured(exc.reason) from exc
         _log.warning("telegram-app: initData bearer rejected (%s)", exc.reason)

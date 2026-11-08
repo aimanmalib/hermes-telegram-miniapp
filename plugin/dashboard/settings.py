@@ -40,13 +40,26 @@ def bot_token() -> str:
     return env("TELEGRAM_BOT_TOKEN")
 
 
-def allowed_user_ids() -> List[str]:
-    """Union of TELEGRAM_OWNER_ID and TELEGRAM_ALLOWED_USERS (numeric ids, owner first)."""
+def _setting_ids(value) -> List[str]:
+    """Numeric ids from the ``admins`` plugin setting: a YAML list or a comma-separated string."""
+    if isinstance(value, (list, tuple)):
+        value = ",".join(str(v) for v in value if not isinstance(v, bool))
+    if not isinstance(value, (str, int)) or isinstance(value, bool):
+        return []
+    return list(tg_auth.parse_allowlist(str(value)))
+
+
+def admin_user_ids() -> List[str]:
+    """The plugin-owned admin list: TELEGRAM_OWNER_ID, then the plugin setting ``admins``.
+
+    Only these Telegram users may log in, receive alerts and be messaged by the send box.
+    Hermes's own list of who may chat with the bot is never read here: the QR setup fills it
+    in, and being allowed to chat must not grant the dashboard (docs/decisions/0007).
+    """
     ids: List[str] = []
-    for raw in (env("TELEGRAM_OWNER_ID"), env("TELEGRAM_ALLOWED_USERS")):
-        for uid in tg_auth.parse_allowlist(raw):
-            if uid not in ids:
-                ids.append(uid)
+    for uid in [*tg_auth.parse_allowlist(env("TELEGRAM_OWNER_ID")), *_setting_ids(compat.plugin_setting("admins"))]:
+        if uid not in ids:
+            ids.append(uid)
     return ids
 
 

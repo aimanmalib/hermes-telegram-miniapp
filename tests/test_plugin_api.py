@@ -93,10 +93,47 @@ def test_freshness_window_configurable(plugin, monkeypatch):
     assert r.status_code == 200
 
 
-def test_allowed_users_union_with_owner(plugin, monkeypatch):
+def test_allowed_users_only_is_refused(plugin, monkeypatch):
+    # Hermes's chat allowlist (filled in by its QR setup) must never grant the dashboard.
     monkeypatch.setenv("TELEGRAM_ALLOWED_USERS", "1001,1002")
-    r = _login(plugin.client, make_init_data(auth_date=int(time.time()), user={"id": 1002}))
-    assert r.status_code == 200
+    chatter = make_init_data(auth_date=int(time.time()), user={"id": 1002, "first_name": "Chat"})
+    r = _login(plugin.client, chatter)
+    assert r.status_code == 403
+    assert r.json() == {"detail": "Invalid Telegram initData"}
+    assert SESSION_TOKEN not in r.text
+    assert _provider(plugin).verify_token(token=chatter) is None
+
+
+def test_allowed_users_alone_is_unconfigured(plugin, monkeypatch):
+    monkeypatch.delenv("TELEGRAM_OWNER_ID")
+    monkeypatch.setenv("TELEGRAM_ALLOWED_USERS", f"{OWNER_ID},1002")
+    r = _login(plugin.client, make_init_data(auth_date=int(time.time())))
+    assert r.status_code == 503
+    assert SESSION_TOKEN not in r.text
+
+
+def test_admins_setting_extends_the_admin_list(plugin, monkeypatch):
+    other = make_init_data(auth_date=int(time.time()), user={"id": 1002, "first_name": "Bo"})
+    assert _login(plugin.client, other).status_code == 403
+    plugin.config["admins"] = [1002]
+    assert _login(plugin.client, other).status_code == 200
+    plugin.config["admins"] = "x, 1002"  # a comma-separated string works too
+    assert _login(plugin.client, other).status_code == 200
+    plugin.config["admins"] = True  # junk is no admin
+    assert _login(plugin.client, other).status_code == 403
+    # The setting alone is a configured admin list (no 503).
+    monkeypatch.delenv("TELEGRAM_OWNER_ID")
+    plugin.config["admins"] = ["1002"]
+    assert _login(plugin.client, other).status_code == 200
+
+
+def test_send_box_writes_to_admins_only(plugin, monkeypatch):
+    monkeypatch.setenv("TELEGRAM_ALLOWED_USERS", "1002")
+    r = plugin.client.post(f"{PREFIX}/command", json={"text": "hi", "chat_id": 1002})
+    assert r.status_code == 403
+    monkeypatch.delenv("TELEGRAM_OWNER_ID")
+    r = plugin.client.post(f"{PREFIX}/command", json={"text": "hi"})
+    assert r.status_code == 400
 
 
 def test_unconfigured_allowlist_refuses(plugin, monkeypatch):

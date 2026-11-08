@@ -5,6 +5,25 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Breaking
+
+- **Only the plugin-owned admin list can log in.** `TELEGRAM_ALLOWED_USERS` is Hermes's list of who may chat with the
+  bot (the Telegram QR setup fills it in), and until now it also granted Mini App login, alerts and the send box. It
+  is no longer read. Admins are `TELEGRAM_OWNER_ID` (one or more ids, comma-separated) plus the new plugin setting
+  `admins`. Migration: if you relied on `TELEGRAM_ALLOWED_USERS`, put your id in `TELEGRAM_OWNER_ID`; otherwise login
+  answers 503. [Decision 0007](docs/decisions/0007-admin-list-is-plugin-owned.md).
+
+### Added
+
+- **Plugin settings** in `config.yaml` under `plugins.entries.telegram-app.settings`, declared in `plugin.yaml`
+  `config_schema`: `admins` (extra admins, applies on the next login) and `alerts_enabled` (default true, read at
+  dashboard start).
+
+### Deprecated
+
+- `TELEGRAM_APP_ALERTS_DISABLED=1` still turns alerts off, with a warning in the dashboard log. Use
+  `alerts_enabled: false`; the variable goes in the next minor release.
+
 ### Changed
 
 - **README layout.** A centred header with the project logo, CI, release and licence badges and a one-line summary in

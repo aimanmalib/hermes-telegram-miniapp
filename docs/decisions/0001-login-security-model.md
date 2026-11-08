@@ -1,6 +1,6 @@
 # 0001. Login security model
 
-Status: Accepted
+Status: Accepted. The allowlist sources are narrowed by [0007](0007-admin-list-is-plugin-owned.md): `TELEGRAM_ALLOWED_USERS` no longer grants login.
 
 ## Context
 

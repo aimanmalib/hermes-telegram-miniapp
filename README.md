@@ -31,7 +31,7 @@ It ships as a Hermes **dashboard plugin** (backend routes under `/api/plugins/te
 ## Features
 
 - **Status**: CPU, memory, disk, load and uptime; session and cron counts; token and cost totals for today, 7 days, 30 days or all time, with the most expensive sessions.
-- **Push alerts** (configured from the Status tab): a Telegram DM when a cron run fails, when `errors.log` gets new errors (throttled, off by default) or when the day's estimated spend crosses a threshold.
+- **Push alerts** (configured from the Status tab): a Telegram DM to the first admin when a cron run fails, when `errors.log` gets new errors (throttled, off by default) or when the day's estimated spend crosses a threshold.
 - **Sessions**: recent sessions with source, message count, tokens and cost; open one to read its messages.
 - **Cron**: create, edit, pause, resume, run now and delete agent cron jobs. Failed last runs are flagged. On Hermes v0.23.0 or later, stop a job that is running and choose per job whether missed runs are caught up ("Run missed jobs").
 - **Logs**: tail `agent.log`, `errors.log` or `gateway.log`, filtered by level, with live refresh.
@@ -58,7 +58,7 @@ It ships as a Hermes **dashboard plugin** (backend routes under `/api/plugins/te
        │    ├─ HMAC-SHA256 with the bot token          │
        │    ├─ fallback: Ed25519, Telegram public key  │
        │    ├─ auth_date freshness window              │
-       │    └─ user id allowlist (fails closed)        │
+       │    └─ admin list (fails closed)               │
        │  returns the dashboard session token          │
        └───────────────────────────────────────────────┘
 ```
@@ -73,10 +73,10 @@ This panel controls an AI agent, so the login path is strict. The full review, w
 
 - **Signature.** `initData` is accepted only if its `hash` matches `HMAC-SHA256(key = HMAC-SHA256("WebAppData", bot_token), data_check_string)`, compared in constant time, exactly as in [Telegram's spec](https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app). If that fails, the Ed25519 `signature` is checked against Telegram's published production key ([third-party validation](https://core.telegram.org/bots/webapps#validating-data-for-third-party-use)), using the bot id from your token.
 - **Freshness.** `auth_date` is required and must be at most **1 hour** old by default (`TELEGRAM_INITDATA_MAX_AGE`, in seconds, clamped to 60 s to 7 days). Values more than 60 s in the future are rejected. Telegram issues new `initData` each time the Mini App opens, so the window only needs to cover one session; if the dashboard restarts after the window, reopen the app.
-- **Allowlist.** Only numeric Telegram user ids in `TELEGRAM_OWNER_ID` and `TELEGRAM_ALLOWED_USERS` can log in. With neither set, every login is refused (HTTP 503) instead of letting anyone in.
+- **Admin list.** Only numeric Telegram user ids in `TELEGRAM_OWNER_ID` and the plugin's own `admins` setting can log in, receive alerts and be messaged by the send box. Hermes's `TELEGRAM_ALLOWED_USERS` (who may chat with the bot, filled in by the QR setup) is never read: being allowed to chat never grants the panel. With no admin set, every login is refused (HTTP 503) instead of letting anyone in. See [decision 0007](docs/decisions/0007-admin-list-is-plugin-owned.md).
 - **Abuse limits.** After 10 failed attempts in 5 minutes from one client address the endpoint answers 429. Every rejection returns the same generic 403. Behind a reverse proxy all clients share the proxy's address, so the limit is effectively global; that suits a single-owner panel.
 - **No secrets in logs or the client.** The bot token never leaves the server; `initData` and tokens are not logged; responses carrying the token are `Cache-Control: no-store`.
-- **What the token grants.** It is the dashboard's own session token, valid until the dashboard restarts, and it authorises the whole dashboard API, not only this plugin. That is why the reverse proxy should forward **only** `/api/plugins/telegram-app/*` (see setup). The plugin's own write endpoints are narrow: cron create accepts agent jobs only (no `script`, `no_agent` or `workdir`), and the bot only posts to allowlisted users.
+- **What the token grants.** It is the dashboard's own session token, valid until the dashboard restarts, and it authorises the whole dashboard API, not only this plugin. That is why the reverse proxy should forward **only** `/api/plugins/telegram-app/*` (see setup). The plugin's own write endpoints are narrow: cron create accepts agent jobs only (no `script`, `no_agent` or `workdir`), and the bot only posts to admins.
 - **`initData` also passes Hermes's other token routes.** Hermes asks every token provider on every token route, so with `HERMES_DASHBOARD_DRAIN_SECRET` set a valid `initData` also gets past the token gate of `/api/gateway/drain`, which the session token alone cannot. The plugin's principals carry the scope `telegram-app`; once Hermes has per-route scopes ([NousResearch/hermes-agent#146551](https://github.com/NousResearch/hermes-agent/pull/146551)) drain demands its own scope and refuses `initData`, and the plugin's login route demands `telegram-app`. Nothing to configure: the plugin detects the feature. See [decision 0006](docs/decisions/0006-login-through-the-token-seam.md).
 
 ## Compatibility
@@ -108,9 +108,8 @@ You need a Hermes install with the dashboard, a bot from [@BotFather](https://t.
 
 ```bash
 TELEGRAM_BOT_TOKEN=123456789:AA...
+# Mini App admins: one id, or several comma-separated
 TELEGRAM_OWNER_ID=1234567890
-# Optional: more users, comma-separated
-# TELEGRAM_ALLOWED_USERS=1234567890,9876543210
 # Optional: initData freshness window in seconds (default 3600)
 # TELEGRAM_INITDATA_MAX_AGE=3600
 ```
@@ -124,7 +123,16 @@ through Hermes apply at once; after editing `.env` by hand, restart the dashboar
 plugins:
   enabled:
     - telegram-app
+  # Optional plugin settings (read on every login, no restart needed):
+  # entries:
+  #   telegram-app:
+  #     settings:
+  #       admins: [9876543210]    # more admins besides TELEGRAM_OWNER_ID
+  #       alerts_enabled: false   # do not start the alerts watcher (read at dashboard start)
 ```
+
+`TELEGRAM_ALLOWED_USERS` only controls who may chat with the bot; it does not let anyone log in to the Mini App. Upgrading
+from 0.5.x with only that variable set: copy your id into `TELEGRAM_OWNER_ID` (or `admins`), or login answers 503.
 
 The Ed25519 fallback uses the `cryptography` package, which current Hermes already depends on. Without it, HMAC verification still works.
 
@@ -230,13 +238,13 @@ All under `/api/plugins/telegram-app/`.
 | GET | `/memory` | session | `MEMORY.md` and `USER.md` |
 | GET, PATCH | `/alerts` | session | Alert settings and watcher state |
 | POST | `/alerts/test` | session | Send a test alert |
-| POST | `/command` | session | Bot posts text to an allowlisted user's DM |
+| POST | `/command` | session | Bot posts text to an admin's DM |
 
 ## Troubleshooting
 
 - **"Open this app from the Telegram bot menu button"**: the page was opened outside Telegram, so there is no `initData`.
-- **`auth/verify 503`** (`Auth provider 'telegram-app-initdata' unreachable`, and `telegram-app: refusing login` in the dashboard log): `TELEGRAM_BOT_TOKEN` or the allowlist (`TELEGRAM_OWNER_ID` / `TELEGRAM_ALLOWED_USERS`) is missing.
-- **`auth/verify 403`**: wrong bot token, a user id not on the allowlist, or `initData` older than the freshness window. Reopen the Mini App; the dashboard log says which check failed (`initData rejected (stale)` and similar).
+- **`auth/verify 503`** (`Auth provider 'telegram-app-initdata' unreachable`, and `telegram-app: refusing login` in the dashboard log): `TELEGRAM_BOT_TOKEN` or the admin list (`TELEGRAM_OWNER_ID` or the `admins` setting) is missing. `TELEGRAM_ALLOWED_USERS` does not count: it only controls who may chat with the bot.
+- **`auth/verify 403`**: wrong bot token, a user id not on the admin list, or `initData` older than the freshness window. Reopen the Mini App; the dashboard log says which check failed (`initData rejected (stale)` and similar).
 - **`auth/verify 429`**: too many failed attempts; wait for the `Retry-After` seconds.
 - **`401` on every call / 404 on `/api/plugins/telegram-app/...`**: the plugin is not in `plugins.enabled`, or the dashboard was not restarted after installing. Check `curl -X POST http://127.0.0.1:9119/api/plugins/telegram-app/auth/verify`: `401` means mounted, `404` means not mounted.
 - **`400 Invalid Host header`**: the proxy forwards your public hostname; keep `header_up Host {upstream_hostport}`.
@@ -276,8 +284,8 @@ di dalam Telegram melalui butang menu bot anda. Ia dihantar sebagai **plugin das
 - **Bahasa Inggeris dan Melayu**, ikut bahasa Telegram anda, dengan suis EN | BM. Tema cerah atau gelap ikut Telegram.
 
 **Keselamatan.** Log masuk menyemak tandatangan HMAC-SHA256 `initData` dengan token bot (sandaran Ed25519 dengan kunci awam
-Telegram), had umur `auth_date` (lalai 1 jam) dan senarai benar ID pengguna yang gagal-tertutup: tanpa `TELEGRAM_OWNER_ID` atau
-`TELEGRAM_ALLOWED_USERS`, semua log masuk ditolak. Proksi songsang patut menghantar **hanya** `/api/plugins/telegram-app/*`, kerana
+Telegram), had umur `auth_date` (lalai 1 jam) dan senarai admin milik plugin yang gagal-tertutup: hanya `TELEGRAM_OWNER_ID` dan tetapan `admins` plugin boleh log masuk;
+tanpanya semua log masuk ditolak. `TELEGRAM_ALLOWED_USERS` (siapa boleh berbual dengan bot) tidak pernah memberi akses panel. Proksi songsang patut menghantar **hanya** `/api/plugins/telegram-app/*`, kerana
 token sesi yang dipulangkan membuka seluruh API dashboard. Butiran penuh dalam [Security model](#security-model) dan
 [SECURITY-REVIEW.md](https://github.com/aimanmalib/hermes-telegram-miniapp/blob/main/SECURITY-REVIEW.md).
 

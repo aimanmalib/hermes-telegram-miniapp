@@ -4,6 +4,8 @@ Date: 22 October 2026. Scope: how the plugin turns Telegram `initData` into a He
 
 Changes in 0.5.0 to the login path: nothing in the plugin is public any more. `POST /auth/verify` is a Hermes token route: the Mini App sends `initData` as the bearer, the plugin's token provider (`plugin/dashboard/tg_token.py`) runs the full check from decision 0001 before the route runs, and the route checks the body again with the failure limiter. Since 0.5.3 the route also refuses a principal vouched for by any other provider (403), because Hermes v0.23.0 admits every provider's principal on every token route. `_PUBLIC_API_PATHS` is no longer touched, and `/health` needs the session token. Tests: `tests/test_plugin_api.py` (provider), `test_login_rejects_forged_and_unlisted_users` in `tests/contract/` (no bearer, forged, stranger: 401; valid bearer with a forged body: 403). [Decision 0006](docs/decisions/0006-login-through-the-token-seam.md).
 
+Changes in 0.6.0 to the allowlist: only the plugin-owned admin list (`TELEGRAM_OWNER_ID` plus the plugin setting `admins`) can log in, receive alerts or be messaged by the send box. `TELEGRAM_ALLOWED_USERS` is no longer read; see finding 17 and [decision 0007](docs/decisions/0007-admin-list-is-plugin-owned.md).
+
 Code layout since 0.4.0 (no behaviour change): `/health` and `/auth/verify` are in `plugin/dashboard/routes_auth.py`; every read of Hermes internals (`_PUBLIC_API_PATHS`, `_SESSION_TOKEN`, `get_secret`) is in `plugin/dashboard/hermes_compat.py`, and `tests/test_layout.py` fails if one appears anywhere else.
 
 Changes in 0.4.0 to the public surface: `/health` now also returns `auth_mode`, `hermes_version` and `capabilities` (two booleans for optional cron features). None of these is a secret; Hermes's own public `/api/status` already returns its version. The login path itself is unchanged: Hermes v0.23.0's bearer-token seam was evaluated and not adopted, because it cannot make the login route public and matches exact paths only ([decision 0005](docs/decisions/0005-login-stays-on-public-paths.md)). Tests: `tests/test_health.py`, and `test_health_reports_login_path_release_and_features` in `tests/contract/` against real Hermes.
@@ -21,7 +23,7 @@ Each finding is marked **Fixed** or **Not an issue**, with the reason. Tests nam
 
 Before: `if allowed and user_id not in allowed`. With neither `TELEGRAM_OWNER_ID` nor `TELEGRAM_ALLOWED_USERS` set, any Telegram user who opened the bot (anyone can) received the dashboard session token.
 
-Now: an empty allowlist rejects every login (HTTP 503, "not configured"), and the two variables are combined instead of `OWNER_ID` silently hiding `ALLOWED_USERS`. Non-numeric entries are ignored. Tests: `test_empty_allowlist_fails_closed`, `test_unconfigured_allowlist_refuses`, `test_non_owner_rejected`.
+Now: an empty allowlist rejects every login (HTTP 503, "not configured"), and the two variables are combined instead of `OWNER_ID` silently hiding `ALLOWED_USERS` (superseded in 0.6.0 by finding 17: `ALLOWED_USERS` no longer grants login). Non-numeric entries are ignored. Tests: `test_empty_allowlist_fails_closed`, `test_unconfigured_allowlist_refuses`, `test_non_owner_rejected`.
 
 ### 2. Freshness check could be skipped: Fixed (high)
 
@@ -90,6 +92,12 @@ The SPA read `localStorage.devSessionToken` in every build. It is now honoured o
 
 Demo mode (sample data, no network) is compiled in only by `npm run build:demo` (output `dist-demo/`, not the `dist/` the installer deploys) or the dev server with `?demo=1`. In a production build the switch is a constant `false` and the demo module is not bundled; CI runs `npm run check:no-demo` against `dist/`. A banner is always shown while it is on.
 
+### 17. Being allowed to chat granted the panel: Fixed in 0.6.0 (high)
+
+Found in a plugin catalog review (8 November 2026). The allowlist was `TELEGRAM_OWNER_ID` plus `TELEGRAM_ALLOWED_USERS`, but in Hermes `TELEGRAM_ALLOWED_USERS` lists who may chat with the bot and the Telegram QR setup fills it in. Everyone allowed to chat could therefore log in and get the dashboard session token (sessions, memory, logs, cron jobs). It also made them alert recipients and send-box targets.
+
+Now: login, alerts and the send box use one plugin-owned admin list, `TELEGRAM_OWNER_ID` plus the plugin setting `admins` (`plugins.entries.telegram-app.settings.admins`, read through Hermes's plugin config). `TELEGRAM_ALLOWED_USERS` is not read anywhere in `plugin/`. An install with only that variable gets 503 (fail closed). Tests: `test_allowed_users_only_is_refused`, `test_allowed_users_alone_is_unconfigured`, `test_send_box_writes_to_admins_only`, `test_bot_chat_is_the_first_admin_only`, and against real Hermes `test_allowed_users_do_not_grant_login`.
+
 ## Sabotage checks
 
 The tests were confirmed to catch regressions by breaking the code on purpose and restoring it:
@@ -99,11 +107,12 @@ The tests were confirmed to catch regressions by breaking the code on purpose an
 | Remove the `age > max_age_sec` check | 4 tests fail (`test_stale_auth_date_rejected`, `test_default_window_is_one_hour`, `test_auth_date_zero_is_stale_not_skipped`, `test_invalid_login_is_generic_403`) |
 | Replace `hmac.compare_digest` with `==` | `test_hash_compared_with_compare_digest` fails |
 | Restore the old fail-open allowlist | `test_empty_allowlist_fails_closed` and `test_unconfigured_allowlist_refuses` fail |
+| Add `TELEGRAM_ALLOWED_USERS` back to `admin_user_ids` | 4 tests fail (`test_allowed_users_only_is_refused`, `test_allowed_users_alone_is_unconfigured`, `test_send_box_writes_to_admins_only`, `test_bot_chat_is_the_first_admin_only`) |
 
 ## Residual risks
 
 - Login depends on Hermes's token seam (`register_token_route`) and one private name (`_SESSION_TOKEN`). A rename breaks login (fails closed: 401). The contract tests against real Hermes releases catch it, and `/health` reports `"auth_mode": "unavailable"`.
 - Hermes consults every token provider on every token route, so valid `initData` also passes the token gate of `/api/gateway/drain` when `HERMES_DASHBOARD_DRAIN_SECRET` is set. The dashboard session token cannot reach that route, so this is new reach for an allowlisted user (or anyone holding their `initData` inside its freshness window), though weaker than the agent cron jobs that user can already create. The plugin cannot close it alone. Since 0.5.2 its principals carry the scope `telegram-app` and its login route demands that scope wherever Hermes supports per-route scopes (NousResearch/hermes-agent#146551); with that change drain refuses `initData` (403). Measured on both seams by `test_init_data_and_core_token_routes` ([decision 0006](docs/decisions/0006-login-through-the-token-seam.md)).
 - Since 0.5.0 `initData` travels in the `Authorization` header as well as the body. Caddy redacts `Authorization` in its access logs by default; if your proxy logs request headers, exclude it.
-- Anyone on the allowlist has full control of the agent, as they would at the dashboard itself.
+- Anyone on the admin list has full control of the agent, as they would at the dashboard itself.
 - The failure limiter is per process and in memory; it resets when the dashboard restarts.

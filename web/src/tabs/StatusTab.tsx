@@ -21,6 +21,9 @@ import {
 import { ErrorBox, LangSwitch, Loading, SectionTitle, tgHapticImpact, ToggleRow } from "../components";
 import { fmtNumber, t } from "../i18n";
 import { errorText } from "../errors";
+import { gaugeLevel } from "../spend";
+import { SpendTrend } from "./SpendTrend";
+import "../status.css";
 
 const WINDOWS: UsageWindow[] = ["today", "week", "month", "all"];
 
@@ -176,6 +179,8 @@ export function StatusTab({
               }
             />
           </div>
+
+          <SpendTrend />
 
           {usage.top_sessions.length > 0 && (
             <>
@@ -420,18 +425,15 @@ function Gauge({
   pct: number | null;
   sub: string;
 }) {
-  let cls = "gauge";
-  if (pct !== null && pct >= 90) cls += " crit";
-  else if (pct !== null && pct >= 70) cls += " warn";
   return (
-    <div className={cls}>
+    <div className="gauge" data-level={pct !== null ? gaugeLevel(pct) : undefined}>
       <div className="name">{name}</div>
       <div className="pct">{pct !== null ? `${pct.toFixed(0)}%` : sub}</div>
       {pct !== null && (
         <>
           <div className="sub">{sub}</div>
           <div className="bar">
-            <div style={{ width: `${Math.min(pct, 100)}%` }} />
+            <div style={{ transform: `scaleX(${Math.min(Math.max(pct, 0), 100) / 100})` }} />
           </div>
         </>
       )}

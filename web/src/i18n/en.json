@@ -60,6 +60,11 @@
   "status.messages": "Messages",
   "status.avgPerSession": "{avg} avg / session",
   "status.topByCost": "Top by cost",
+  "status.trend": "Spend · last {days} days",
+  "status.trendAria": "Spend per day over the last {days} days, {total} in total",
+  "status.trendPeak": "Peak {usd} on {day}",
+  "status.trendPeakToday": "Peak today, {usd}",
+  "status.trendEmpty": "No spend in the last {days} days",
 
   "alerts.title": "Push alerts",
   "alerts.notConfigured": "⚠ Bot token / owner chat not configured, so alerts won't be delivered. Check Telegram gateway settings.",

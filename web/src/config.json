@@ -1,0 +1,11 @@
+{
+  "gauges": {
+    "warnPct": 70,
+    "critPct": 90
+  },
+  "spendTrend": {
+    "days": 7,
+    "sessionLimit": 200,
+    "refreshSec": 60
+  }
+}

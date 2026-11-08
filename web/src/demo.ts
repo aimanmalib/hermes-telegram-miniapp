@@ -58,6 +58,9 @@ function sessions(): SessionRow[] {
     row("s-3d07", "Disk usage check", "/ is at 47%. Largest growth: docker build cache (+2.1 GB).", "cron", "claude-haiku-4-5", 260, 4, 2, 7_900, 610, 0.01),
     row("s-2a66", "Research: SQLite WAL backups", "Use the online backup API or VACUUM INTO; copying the file alone misses the -wal.", "telegram", "claude-opus-4-1", 1440, 31, 14, 288_000, 12_400, 1.21),
     row("s-19c4", "Weekly metrics digest", "Signups +8% week over week; churn flat.", "cron", "claude-sonnet-4-5", 2900, 8, 4, 22_000, 2_300, 0.09),
+    row("s-1b52", "Triage nightly test failures", "Two flaky specs quarantined; one real regression in the CSV export.", "telegram", "claude-sonnet-4-5", 4300, 18, 11, 96_000, 6_200, 0.38),
+    row("s-0e77", "Plan database migration", "Split into three steps; the backfill runs in batches of 5k rows.", "cli", "claude-opus-4-1", 5800, 26, 12, 174_000, 8_800, 0.72),
+    row("s-0a13", "Summarise on-call handover", "Quiet week: one disk alert, resolved by pruning old images.", "cron", "claude-haiku-4-5", 8200, 5, 2, 9_400, 700, 0.02),
   ];
 }
 

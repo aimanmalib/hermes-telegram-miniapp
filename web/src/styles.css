@@ -20,6 +20,7 @@
   --tg-divider: rgba(255, 255, 255, 0.06);
   --tg-destructive: #f87171;
   --tma-warn: #fbbf24;
+  --tma-ok: #4ade80;
 
   /* Spacing scale */
   --space-1: 4px;
@@ -126,56 +127,6 @@ button {
   font-weight: 600;
   font-size: 17px;
 }
-
-/* ---- Status gauges --------------------------------------------------- */
-
-.gauges {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-3);
-  margin: 0 var(--space-4) var(--space-4);
-}
-
-.gauge {
-  background: var(--tg-section);
-  border-radius: var(--radius);
-  padding: var(--space-4);
-}
-
-.gauge .name {
-  font-size: 12px;
-  color: var(--tg-hint);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.gauge .pct {
-  font-size: 24px;
-  font-weight: 700;
-  margin-top: 2px;
-}
-
-.gauge .sub {
-  font-size: 12px;
-  color: var(--tg-hint);
-}
-
-.gauge .bar {
-  height: 4px;
-  background: var(--tg-bg-secondary);
-  border-radius: 2px;
-  margin-top: var(--space-3);
-  overflow: hidden;
-}
-
-.gauge .bar > div {
-  height: 100%;
-  background: var(--tg-accent);
-  transition: width 0.3s;
-}
-
-.gauge.warn .bar > div { background: var(--tma-warn); }
-.gauge.crit .bar > div { background: var(--tg-destructive); }
 
 /* ---- Lists ----------------------------------------------------------- */
 
@@ -464,6 +415,7 @@ body[data-scheme="light"] {
   --tg-divider: rgba(0, 0, 0, 0.08);
   --tg-destructive: #dc2626;
   --tma-warn: #b45309;
+  --tma-ok: #15803d;
 }
 
 /* ---- Section header w/ inline action ------------------------------- */

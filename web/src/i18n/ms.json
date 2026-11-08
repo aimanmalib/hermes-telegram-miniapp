@@ -60,6 +60,11 @@
   "status.messages": "Mesej",
   "status.avgPerSession": "purata {avg}/sesi",
   "status.topByCost": "Kos tertinggi",
+  "status.trend": "Belanja · {days} hari lepas",
+  "status.trendAria": "Belanja setiap hari dalam {days} hari lepas, jumlah {total}",
+  "status.trendPeak": "Tertinggi {usd} pada {day}",
+  "status.trendPeakToday": "Tertinggi hari ini, {usd}",
+  "status.trendEmpty": "Tiada belanja dalam {days} hari lepas",
 
   "alerts.title": "Notifikasi amaran",
   "alerts.notConfigured": "⚠ Token bot / chat pemilik belum ditetapkan, jadi amaran tidak akan dihantar. Semak tetapan gateway Telegram.",

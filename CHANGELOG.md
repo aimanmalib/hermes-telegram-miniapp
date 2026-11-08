@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-08
+
 ### Breaking
 
 - **Only the plugin-owned admin list can log in.** `TELEGRAM_ALLOWED_USERS` is Hermes's list of who may chat with the
@@ -23,6 +25,11 @@ All notable changes to this project are documented here. The format follows
 
 - `TELEGRAM_APP_ALERTS_DISABLED=1` still turns alerts off, with a warning in the dashboard log. Use
   `alerts_enabled: false`; the variable goes in the next minor release.
+
+### Fixed
+
+- The Hermes dashboard tab named `TELEGRAM_ALLOWED_USERS` as a way to log in. It now names `TELEGRAM_OWNER_ID` and the
+  `admins` setting.
 
 ### Changed
 

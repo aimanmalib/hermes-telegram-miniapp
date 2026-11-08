@@ -36,6 +36,7 @@ REPO = Path(__file__).resolve().parents[2]
 PLUGIN_NAME = "telegram-app"
 # Turns on Hermes's bundled drain provider, so a core token route exists (tests at the end).
 CONFIG_ADMIN_ID = 515151  # synthetic id granted through plugins.entries.telegram-app.settings.admins
+BASE_CONFIG = f"plugins:\n  enabled:\n    - {PLUGIN_NAME}\n"
 CHATTER_ID = 616161  # synthetic id that is only allowed to chat with the bot
 DRAIN_SECRET = "contract-Drain-0123456789-abcdefghijklmnopqrstuvwxyz"
 
@@ -80,11 +81,7 @@ def hermes(tmp_path_factory):
         home / "plugins" / PLUGIN_NAME,
         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
     )
-    (home / "config.yaml").write_text(
-        f"plugins:\n  enabled:\n    - {PLUGIN_NAME}\n"
-        f"  entries:\n    {PLUGIN_NAME}:\n      settings:\n        admins: [{CONFIG_ADMIN_ID}]\n",
-        encoding="utf-8",
-    )
+    (home / "config.yaml").write_text(BASE_CONFIG, encoding="utf-8")
     (home / "logs").mkdir()
     (home / "logs" / "agent.log").write_text(
         "2026-01-01 00:00:00,000 INFO contract-test: marker line\n", encoding="utf-8"
@@ -261,12 +258,27 @@ def test_allowed_users_do_not_grant_login(hermes):
         assert "session_token" not in r.text
 
 
+def _write_config(hermes, text: str) -> None:
+    path = hermes.home / "config.yaml"
+    path.write_text(text, encoding="utf-8")
+    stamp = path.stat().st_mtime + 5  # a new mtime, so Hermes's config cache cannot serve the old file
+    os.utime(path, (stamp, stamp))
+
+
 def test_admins_plugin_setting_grants_login(hermes):
-    # config.yaml plugins.entries.telegram-app.settings.admins, read through PluginContext.get_config.
+    # config.yaml plugins.entries.telegram-app.settings.admins, read through PluginContext.get_config
+    # on every login, so the edit applies to the running dashboard.
     admin = hermes.h.make_init_data(auth_date=int(time.time()), user={"id": CONFIG_ADMIN_ID, "first_name": "Cfg"})
-    r = _bearer_login(hermes, admin)
-    assert r.status_code == 200, r.text
-    assert r.json()["user"]["id"] == CONFIG_ADMIN_ID
+    assert _bearer_login(hermes, admin).status_code == 401
+    try:
+        _write_config(hermes, BASE_CONFIG + f"  entries:\n    {PLUGIN_NAME}:\n      settings:\n"
+                      f"        admins: [{CONFIG_ADMIN_ID}]\n")
+        r = _bearer_login(hermes, admin)
+        assert r.status_code == 200, r.text
+        assert r.json()["user"]["id"] == CONFIG_ADMIN_ID
+    finally:
+        _write_config(hermes, BASE_CONFIG)
+    assert _bearer_login(hermes, admin).status_code == 401
 
 
 def test_status(hermes):

@@ -23,7 +23,7 @@
         h("p", { className: "text-sm" }, "Backend: " + status),
         h("p", { className: "text-sm text-muted-foreground" },
           "The Mini App opens from your Telegram bot's menu button. Configure TELEGRAM_BOT_TOKEN and " +
-          "TELEGRAM_OWNER_ID (or TELEGRAM_ALLOWED_USERS) in your Hermes .env; see the project README."),
+          "TELEGRAM_OWNER_ID (or the plugin setting admins) in your Hermes setup; see the project README."),
       ),
     );
   }

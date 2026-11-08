@@ -1,5 +1,5 @@
 name: telegram-app
-version: 0.6.1
+version: 0.7.0
 manifest_version: 2
 description: >-
   Telegram Mini App control panel for Hermes Agent: live status, sessions, cron, logs and alerts on your phone,

@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-08
+
 ### Added
 
 - **Ask Hermes.** The Send tab is now Ask: type a question or tap a preset, and Hermes runs it once and sends the

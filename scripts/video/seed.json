@@ -1,0 +1,36 @@
+{
+  "_comment": "Real agent turns and cron jobs the demo rig starts from. Prompts are self-contained so the agent never needs to read the machine it runs on.",
+  "sessions": [
+    "Summarise this log excerpt in three bullet points and name the one line that needs attention:\n09:00:01 INFO backup started\n09:04:12 INFO backup finished, 2.1 GB\n09:10:33 WARN disk /var at 86%\n09:15:00 INFO cron weekly-digest queued\nAnswer from the text only; do not run commands.",
+    "Draft short release notes (max 5 bullets) for a version that adds line icons to a phone panel, replaces a demo banner with a small pill, and adds a 7-day spend sparkline. Answer from the text only; do not run commands.",
+    "A server shows CPU 34%, RAM 71%, disk 86%. Which one would you look at first and why? Two sentences. Do not run commands.",
+    "Write a polite two-sentence message telling a team that tonight's deploy moves from 21:00 to 22:00. Do not run commands.",
+    "Give me a five-item checklist for rotating an API key safely. Do not run commands.",
+    "Explain in three sentences what a cron job with 'repeat: 1' is useful for. Do not run commands."
+  ],
+  "cron": [
+    {
+      "name": "Morning ops brief",
+      "schedule": "0 8 * * *",
+      "prompt": "Write a three-line morning checklist for a small ops team. Do not run commands.",
+      "deliver": "local",
+      "run_now": true
+    },
+    {
+      "name": "Friday release notes",
+      "schedule": "0 17 * * 5",
+      "prompt": "Draft a short weekly release-notes template with three headings. Do not run commands.",
+      "deliver": "local",
+      "run_now": false
+    },
+    {
+      "name": "Weekly digest",
+      "schedule": "0 9 * * 1",
+      "prompt": "Summarise the week's activity in five bullets.",
+      "deliver": "local",
+      "model": "model-that-does-not-exist",
+      "run_now": true,
+      "expect_failure": true
+    }
+  ]
+}

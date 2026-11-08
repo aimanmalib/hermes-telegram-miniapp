@@ -7,10 +7,11 @@
 #   TOKEN_FILE   the rig's dashboard token (default $OUT_DIR/dashboard-token), set as localStorage.devSessionToken
 #   RIG_SUMMARY  rig summary written by seed.py; "live" captions need "live": true there
 #   VIDEO_OUT    output folder (default $OUT_DIR/video); compose.sh reads $VIDEO_OUT/manifest.json
+#   FORBID_ON_SCREEN  optional comma-separated strings to add to the storyboard's list (host names, endpoints)
 #   RECORD_SHOTS optional comma-separated shot ids to record (cards and frames are always rendered)
 #
 # Text, timing and layout come from storyboard.json. The kept part of each shot is checked while it plays:
-# any storyboard "forbid_on_screen" string, or the token itself, in the page text fails the run.
+# any "forbid_on_screen" string (storyboard or env), or the token itself, in the page text fails the run.
 import json
 import os
 import sys
@@ -29,6 +30,7 @@ token = Path(os.environ.get("TOKEN_FILE") or f"{OUT_DIR}/dashboard-token").read_
 summary = json.loads(Path(os.environ.get("RIG_SUMMARY") or f"{OUT_DIR}/rig.json").read_text())
 out = Path(os.environ.get("VIDEO_OUT") or f"{OUT_DIR}/video")
 only = set(filter(None, os.environ.get("RECORD_SHOTS", "").split(",")))
+forbid = board["forbid_on_screen"] + [x for x in os.environ.get("FORBID_ON_SCREEN", "").split(",") if x]
 tabs = ["status", "sessions", "cron", "logs", "brain", "send"]  # tab-bar order, matched by position
 
 # A small touch ripple, since a recorded touch screen shows no pointer. Transform and opacity only.
@@ -72,7 +74,7 @@ class Shot:
             return
         texts = [f.evaluate("document.body ? document.body.innerText : ''") for f in self.page.frames]
         for text in texts:
-            for bad in board["forbid_on_screen"] + [token]:
+            for bad in forbid + [token]:
                 if bad in text:
                     line = next((x for x in text.splitlines() if bad in x), "")[:160]
                     shown = "the dashboard token" if bad == token else f"{bad!r} in {line!r}"

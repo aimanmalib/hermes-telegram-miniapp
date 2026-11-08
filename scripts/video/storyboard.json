@@ -16,12 +16,7 @@
     "lang": "en"
   },
   "fade_sec": 0.3,
-  "forbid_on_screen": [
-    "/home/",
-    "9router",
-    "mypii",
-    "127.0.0.1"
-  ],
+  "forbid_on_screen": ["/home/", "/Users/", "127.0.0.1"],
   "title": "Hermes Telegram Mini App",
   "repo": "github.com/aimanmalib/hermes-telegram-miniapp",
   "shots": [

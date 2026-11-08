@@ -7,7 +7,7 @@ Scripts for recording the demo video against a real Hermes Agent, not the demo b
 | `rig.sh` | `up` / `down` / `status`: runs `hermes dashboard` on loopback with a throwaway Hermes home that has this plugin installed (symlink) and enabled. |
 | `seed.py` | Makes real data in that home: one agent turn per prompt, cron jobs created through the plugin's `POST /cron`, and one run of the due jobs. Writes a summary JSON. |
 | `seed.json` | The prompts and cron jobs `seed.py` uses. Edit this, not the script. |
-| `storyboard.json` | Shots, captions, durations, phone frame size and the strings that must never be on screen. Edit this, not the scripts. |
+| `storyboard.json` | Shots, captions, durations, phone frame size and the strings that must never be on screen (`FORBID_ON_SCREEN` adds your own, such as host names). Edit this, not the scripts. |
 | `record.py` | Records each screen shot with WebKit (iPhone 13, touch ripples, no pointer) against the Vite dev server, renders the cards and frames (`frames.py`), and writes `manifest.json`. Stops if a forbidden string or the token appears in the kept part of a shot. |
 | `telegram-mock.html` | The chat screen in the opening shot. It is a mock, labelled "Mock" for the whole shot; the panel inside it is the real app. |
 | `compose.sh` | Builds the mp4 from `manifest.json` with ffmpeg: H.264, yuv420p, no audio, `+faststart`. `SAMPLE_DIR=<dir>` also saves one frame per shot. |

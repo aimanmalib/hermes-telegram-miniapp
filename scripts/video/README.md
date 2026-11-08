@@ -7,6 +7,10 @@ Scripts for recording the demo video against a real Hermes Agent, not the demo b
 | `rig.sh` | `up` / `down` / `status`: runs `hermes dashboard` on loopback with a throwaway Hermes home that has this plugin installed (symlink) and enabled. |
 | `seed.py` | Makes real data in that home: one agent turn per prompt, cron jobs created through the plugin's `POST /cron`, and one run of the due jobs. Writes a summary JSON. |
 | `seed.json` | The prompts and cron jobs `seed.py` uses. Edit this, not the script. |
+| `storyboard.json` | Shots, captions, durations, phone frame size and the strings that must never be on screen. Edit this, not the scripts. |
+| `record.py` | Records each screen shot with WebKit (iPhone 13, touch ripples, no pointer) against the Vite dev server, renders the cards and frames (`frames.py`), and writes `manifest.json`. Stops if a forbidden string or the token appears in the kept part of a shot. |
+| `telegram-mock.html` | The chat screen in the opening shot. It is a mock, labelled "Mock" for the whole shot; the panel inside it is the real app. |
+| `compose.sh` | Builds the mp4 from `manifest.json` with ffmpeg: H.264, yuv420p, no audio, `+faststart`. `SAMPLE_DIR=<dir>` also saves one frame per shot. |
 
 ## Environment
 
@@ -31,6 +35,17 @@ python3 scripts/video/seed.py
 cd web && npm run dev                  # then set localStorage.devSessionToken to $OUT_DIR/dashboard-token
 scripts/video/rig.sh down
 ```
+
+Recording, with the rig up and the Vite dev server on port 5173:
+
+```sh
+VIDEO_OUT=out uv run --with playwright==1.58.0 --with pillow python scripts/video/record.py
+VIDEO_OUT=out VIDEO_FILE=out/demo.mp4 SAMPLE_DIR=out/samples scripts/video/compose.sh
+```
+
+`RECORD_SHOTS=brain,logs` re-records only those shots and keeps the others from the last manifest. A caption marked
+`needs_live` is refused unless the rig summary says `live: true`. Cron jobs run only while a Hermes gateway
+serves the rig's home (`hermes gateway run`); the dashboard alone shows them but does not fire them.
 
 `localStorage.devSessionToken` is the existing development login path: only the Vite dev server reads it,
 production builds ignore it, and Telegram login (`/auth/verify`) is unchanged.

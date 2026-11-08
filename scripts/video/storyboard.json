@@ -1,0 +1,113 @@
+{
+  "canvas": {
+    "width": 1080,
+    "height": 1920,
+    "fps": 30
+  },
+  "phone": {
+    "screen_width": 700,
+    "bezel": 20,
+    "radius": 72,
+    "bottom_margin": 56
+  },
+  "record": {
+    "viewport_scale": 2,
+    "theme": "dark",
+    "lang": "en"
+  },
+  "fade_sec": 0.3,
+  "forbid_on_screen": [
+    "/home/",
+    "9router",
+    "mypii",
+    "127.0.0.1"
+  ],
+  "title": "Hermes Telegram Mini App",
+  "repo": "github.com/aimanmalib/hermes-telegram-miniapp",
+  "shots": [
+    {
+      "id": "title",
+      "kind": "card",
+      "duration": 5,
+      "lines": [
+        "Hermes Telegram Mini App",
+        "Your Hermes agent, controlled from the chat you already use"
+      ]
+    },
+    {
+      "id": "open",
+      "kind": "mock",
+      "duration": 9,
+      "caption": "Opens from your bot's menu button. Telegram-signed login: no VPN, no password.",
+      "mock": {
+        "label": "Mock",
+        "bot": "Hermes",
+        "menu_button": "Panel",
+        "messages": [
+          {
+            "from": "bot",
+            "text": "Morning ops brief: two jobs ran overnight, one failed."
+          },
+          {
+            "from": "me",
+            "text": "Let me take a look."
+          }
+        ]
+      }
+    },
+    {
+      "id": "status",
+      "kind": "app",
+      "duration": 11,
+      "needs_live": true,
+      "caption": "Live from a real Hermes v{hermes_version}: host, sessions, cron and spend at a glance."
+    },
+    {
+      "id": "cron",
+      "kind": "app",
+      "duration": 12,
+      "caption": "Run now, pause, edit cron jobs. Failed runs are flagged."
+    },
+    {
+      "id": "sessions",
+      "kind": "app",
+      "duration": 10,
+      "caption": "Read what your agent did, from your phone."
+    },
+    {
+      "id": "logs",
+      "kind": "app",
+      "duration": 9,
+      "caption": "Tail agent, error and gateway logs. Filter by level."
+    },
+    {
+      "id": "brain",
+      "kind": "app",
+      "duration": 13,
+      "caption": "Browse your agent's skills. English and Malay built in.",
+      "filter": "review"
+    },
+    {
+      "id": "security",
+      "kind": "card",
+      "duration": 9,
+      "lines": [
+        "Built to be safe on a phone",
+        "HMAC + Ed25519 verified Telegram login",
+        "Fail-closed admin list",
+        "Your proxy forwards only /api/plugins/telegram-app/*",
+        "Contract-tested against real Hermes in CI"
+      ]
+    },
+    {
+      "id": "close",
+      "kind": "card",
+      "duration": 6,
+      "lines": [
+        "github.com/aimanmalib/hermes-telegram-miniapp",
+        "Submitted to the Hermes plugin catalog as telegram-app",
+        "MIT licensed"
+      ]
+    }
+  ]
+}

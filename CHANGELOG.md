@@ -7,10 +7,20 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- **Ask Hermes.** The Send tab is now Ask: type a question or tap a preset, and Hermes runs it once and sends the
+  answer to your Telegram chat. The tab follows the job (queued, answering, sent to chat, or the error), keeps
+  following it when you switch tabs, and says when it has waited long enough that the gateway is probably not
+  running. Poll interval and wait limits live in `web/src/config.json` under `ask`. Saved presets and history carry
+  over from the Send tab.
 - `POST /ask`: Ask Hermes. Queues one agent run whose answer Hermes delivers to an admin's Telegram chat: a one-shot
   cron job (`repeat=1`, `deliver=telegram:<admin id>`), prompt only. New plugin settings `ask_max_chars` (default
   2000) and `ask_max_pending` (default 1). Covered by a contract test against real Hermes. See
   [decision 0008](docs/decisions/0008-ask-hermes.md).
+
+### Changed
+
+- The panel no longer offers "Post to bot chat": Telegram never hands a bot's own message back to it, so Hermes did not
+  act on it. `POST /command` stays for scripts.
 
 ## [0.6.1] - 2026-11-08
 

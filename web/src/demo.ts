@@ -174,6 +174,54 @@ function cron(): CronJob[] {
   return cronJobs;
 }
 
+/** Demo Asks: when each was asked, so GET /cron can walk it queued → running → completed. */
+const demoAskStarted = new Map<string, number>();
+const DEMO_ASK_RUN_AFTER = 2;
+const DEMO_ASK_DONE_AFTER = 7;
+
+function advanceAsks() {
+  for (const job of cron()) {
+    const started = demoAskStarted.get(job.id);
+    if (started === undefined) continue;
+    const age = now() - started;
+    job.running = age >= DEMO_ASK_RUN_AFTER && age < DEMO_ASK_DONE_AFTER;
+    if (age >= DEMO_ASK_DONE_AFTER) {
+      job.state = "completed";
+      job.enabled = false;
+      job.last_status = "ok";
+      job.last_run_at = iso(0);
+      job.next_run_at = null;
+      demoAskStarted.delete(job.id);
+    }
+  }
+}
+
+function demoAsk(path: string, rawBody: string) {
+  advanceAsks();
+  if (cron().some((j) => demoAskStarted.has(j.id))) {
+    throw new ApiError(path, 409, "Hermes is still answering the last question", "busy");
+  }
+  const prompt = String(JSON.parse(rawBody).prompt ?? "").trim();
+  if (!prompt) throw new ApiError(path, 422, "The question is empty", "empty");
+  const words = prompt.split(/\s+/).join(" ");
+  const job: CronJob = {
+    id: Math.random().toString(16).slice(2, 8),
+    name: `Ask: ${words.length > 48 ? `${words.slice(0, 47)}…` : words}`,
+    schedule: { kind: "once", display: "once" },
+    schedule_display: "once",
+    prompt,
+    deliver: "telegram",
+    enabled: true,
+    state: "scheduled",
+    next_run_at: iso(0),
+    last_run_at: null,
+    last_status: null,
+  };
+  cron().unshift(job);
+  demoAskStarted.set(job.id, now());
+  return { ok: true, job };
+}
+
 const LOG_LINES: Record<LogFile, string[]> = {
   agent: [
     "INFO - hermes.gateway - telegram: update 88213 from user 1 (text, 42 chars)",
@@ -325,7 +373,11 @@ export async function handleDemoRequest(path: string, init: RequestInit = {}): P
       messages: MESSAGES.map((m, i) => ({ ...m, timestamp: t + i * 70 })),
     };
   }
-  if (route === "/cron" && method === "GET") return { jobs: cron() };
+  if (route === "/cron" && method === "GET") {
+    advanceAsks();
+    return { jobs: cron() };
+  }
+  if (route === "/ask" && method === "POST") return demoAsk(path, String(init.body ?? "{}"));
   if (route === "/cron" && method === "POST") {
     const body = JSON.parse(String(init.body ?? "{}"));
     const job: CronJob = {
@@ -379,6 +431,5 @@ export async function handleDemoRequest(path: string, init: RequestInit = {}): P
     return alerts;
   }
   if (route === "/alerts/test") return { ok: true, sent: false, reason: "demo mode: nothing is sent" };
-  if (route === "/command") return { ok: true, message_id: 0 };
   throw new ApiError(path, 404, "not available in demo mode");
 }

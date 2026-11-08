@@ -1,0 +1,115 @@
+/* ---- Ask: progress of one question ---------------------------------- */
+
+.ask-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ask-question {
+  margin: 0;
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--tg-divider);
+  color: var(--tg-text);
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.ask-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.ask-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  color: var(--tg-hint);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+/* The track: a hairline from each dot to the next one. */
+.ask-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 14px;
+  right: calc(-1 * var(--space-2) + 4px);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--tg-divider);
+}
+
+.ask-step.done:not(:last-child)::after {
+  background: var(--tg-accent);
+}
+
+.ask-step-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  flex: none;
+}
+
+.ask-step-label {
+  overflow-wrap: anywhere;
+}
+
+.ask-step.done,
+.ask-step.active {
+  color: color-mix(in srgb, var(--tg-accent) 55%, var(--tg-text)); /* >= 4.5:1 both themes */
+}
+
+.ask-step.done .ask-step-dot {
+  background: var(--tg-accent);
+  border-color: var(--tg-accent);
+}
+
+.ask-step.failed {
+  color: var(--tg-destructive);
+}
+
+.ask-step.failed .ask-step-dot {
+  background: var(--tg-destructive);
+  border-color: var(--tg-destructive);
+}
+
+/* Only opacity pulses (no filter: WebKit crash). */
+.ask-step.active .ask-step-dot {
+  background: currentColor;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-step.active .ask-step-dot {
+    animation: none;
+  }
+}
+
+.ask-status {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tg-text);
+}
+
+.ask-status.failed {
+  color: var(--tg-destructive);
+}
+
+.ask-note {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--tg-hint);
+  overflow-wrap: anywhere;
+}

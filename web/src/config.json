@@ -7,5 +7,10 @@
     "days": 7,
     "sessionLimit": 200,
     "refreshSec": 60
+  },
+  "ask": {
+    "pollSec": 3,
+    "slowSec": 45,
+    "maxWaitMin": 10
   }
 }

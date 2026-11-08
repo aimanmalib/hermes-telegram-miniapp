@@ -5,7 +5,7 @@
  * (decision 0003). Icons draw in `currentColor`, so they follow the theme.
  */
 
-export type IconName = "status" | "sessions" | "cron" | "logs" | "knowledge" | "send";
+export type IconName = "status" | "sessions" | "cron" | "logs" | "knowledge" | "ask";
 
 const PATHS: Record<IconName, string[]> = {
   // gauge
@@ -39,8 +39,8 @@ const PATHS: Record<IconName, string[]> = {
     "M6.5 16a3.5 3.5 0 0 1 0 -7h.5",
     "M5 9.3v-2.8a3.5 3.5 0 0 1 7 0v10",
   ],
-  // send
-  send: ["M10 14l11 -11", "M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5"],
+  // send (paper plane)
+  ask: ["M10 14l11 -11", "M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5"],
 };
 
 export const ICON_NAMES = Object.keys(PATHS) as IconName[];

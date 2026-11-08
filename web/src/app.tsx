@@ -7,7 +7,7 @@ import { SessionDetail } from "./tabs/SessionDetail";
 import { CronTab } from "./tabs/CronTab";
 import { LogsTab } from "./tabs/LogsTab";
 import { KnowledgeTab } from "./tabs/KnowledgeTab";
-import { SendTab } from "./tabs/SendTab";
+import { AskTab } from "./tabs/AskTab";
 import { DEMO_ENABLED } from "./demo-gate";
 import { AppHeader } from "./AppHeader";
 import { Icon } from "./icons";
@@ -15,10 +15,10 @@ import { initLang, t } from "./i18n";
 import { useLang } from "./i18n/useLang";
 import { errorText } from "./errors";
 
-type Tab = "status" | "sessions" | "cron" | "logs" | "knowledge" | "send";
+type Tab = "status" | "sessions" | "cron" | "logs" | "knowledge" | "ask";
 
 /** Tab bar order. Each name is also its icon (icons.tsx) and its `tab.*` label key. */
-const TABS: Tab[] = ["status", "sessions", "cron", "logs", "knowledge", "send"];
+const TABS: Tab[] = ["status", "sessions", "cron", "logs", "knowledge", "ask"];
 
 interface View {
   tab: Tab;
@@ -211,7 +211,7 @@ export function App() {
         {view.tab === "cron" && <CronTab />}
         {view.tab === "logs" && <LogsTab />}
         {view.tab === "knowledge" && <KnowledgeTab />}
-        {view.tab === "send" && <SendTab />}
+        {view.tab === "ask" && <AskTab />}
       </main>
       <nav className="tab-bar">
         {TABS.map((tab) => (

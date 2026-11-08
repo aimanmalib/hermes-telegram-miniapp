@@ -9,7 +9,7 @@
 
 Run, stop and edit your [Hermes Agent](https://github.com/NousResearch/hermes-agent) cron jobs, check spend, read sessions and logs, and get a Telegram alert when a run fails, all from your bot's menu button.
 
-No VPN, password or new account: login checks the `initData` Telegram signs for the Mini App against an admin list that refuses everyone until you fill it in, and only `/api/plugins/telegram-app/*` needs to face the internet. It ships as a Hermes **dashboard plugin** plus a small React app; nothing in Hermes is patched. CI installs a real Hermes v0.23.0 and drives the plugin through its dashboard on every change, the [security review](SECURITY-REVIEW.md) is public, and there are 9 tagged releases.
+No VPN, password or new account: login checks the `initData` Telegram signs for the Mini App against an admin list that refuses everyone until you fill it in, and only `/api/plugins/telegram-app/*` needs to face the internet. It ships as a Hermes **dashboard plugin** plus a small React app; nothing in Hermes is patched. CI installs a real Hermes v0.23.0 and drives the plugin through its dashboard on every change, the [security review](SECURITY-REVIEW.md) is public, and there are 10 tagged releases.
 
 ### Why a Mini App, not the dashboard on your phone
 
@@ -46,7 +46,7 @@ Built for the Hermes Agent Plugin Hackathon by Nous Research, November 2026.
 - **Cron**: create, edit, pause, resume, run now and delete agent cron jobs. Failed last runs are flagged. On Hermes v0.23.0 or later, stop a job that is running and choose per job whether missed runs are caught up ("Run missed jobs").
 - **Logs**: tail `agent.log`, `errors.log` or `gateway.log`, filtered by level, with live refresh.
 - **Brain**: search installed skills and read `SKILL.md`, read the agent's `MEMORY.md` and `USER.md`.
-- **Post to bot chat**: have the bot post a message into your DM. See [limitations](#known-limitations): Hermes does not act on it.
+- **Ask Hermes**: type a question or tap a saved preset. Hermes runs it once as an agent cron job and sends the answer to your Telegram chat, while the tab shows it queued, answering and sent. See [decision 0008](docs/decisions/0008-ask-hermes.md).
 - **English and Malay.** The app uses your Telegram language when it is Malay and English otherwise; an EN | BM switch at the bottom of the Status tab overrides it. Adding a language is one JSON file in `web/src/i18n/`.
 - Follows your Telegram light or dark theme, uses Telegram haptics.
 
@@ -248,6 +248,7 @@ All under `/api/plugins/telegram-app/`.
 | GET | `/memory` | session | `MEMORY.md` and `USER.md` |
 | GET, PATCH | `/alerts` | session | Alert settings and watcher state |
 | POST | `/alerts/test` | session | Send a test alert |
+| POST | `/ask` | session | Ask Hermes: one-shot agent job, answer delivered to an admin's chat; `prompt` (and optional admin `chat_id`) only; 422 `too_long`/`empty`, 409 `busy` |
 | POST | `/command` | session | Bot posts text to an admin's DM |
 
 ## Troubleshooting
@@ -262,7 +263,8 @@ All under `/api/plugins/telegram-app/`.
 
 ## Known limitations
 
-- **Post to bot chat does not reach Hermes.** The message is sent by the bot, and Telegram never delivers a bot's own messages back to it, so the Hermes gateway does not see it. To give Hermes a task from the panel, create a cron job and use **Run now**.
+- **Ask needs the Hermes gateway running.** The answer is sent by Hermes's cron ticker, which runs in the gateway; without it the question waits in the Cron tab, where you can delete it.
+- **`POST /command` does not reach Hermes.** The endpoint is still there for scripts: the bot posts the text into your DM, but Telegram never delivers a bot's own messages back to it, so the gateway does not see it. Use Ask instead.
 - Login depends on private Hermes internals (see [compatibility](#compatibility)).
 - One dashboard process, one profile: multi-profile hosting and `plugins.isolation: host` are untested.
 
@@ -291,6 +293,7 @@ di dalam Telegram melalui butang menu bot anda. Ia dihantar sebagai **plugin das
 - **Sesi, Cron, Log, Otak:** baca sesi dan mesejnya; cipta, sunting, jeda, sambung, jalankan sekarang dan padam kerja cron ejen
   (henti larian dan pilihan "Run missed jobs" pada Hermes v0.23.0 ke atas); ekor `agent.log`, `errors.log` dan `gateway.log`;
   cari kemahiran dan baca `SKILL.md`, `MEMORY.md` serta `USER.md`.
+- **Tanya Hermes:** taip soalan; Hermes menjalankannya sekali sebagai kerja cron dan menghantar jawapan ke sembang Telegram anda.
 - **Bahasa Inggeris dan Melayu**, ikut bahasa Telegram anda, dengan suis EN | BM. Tema cerah atau gelap ikut Telegram.
 
 **Keselamatan.** Log masuk menyemak tandatangan HMAC-SHA256 `initData` dengan token bot (sandaran Ed25519 dengan kunci awam
@@ -309,8 +312,8 @@ domain dengan HTTPS dan Node.js 22 (atau 20.19+).
 3. Sediakan proksi songsang (contoh Caddy di [Setup](#setup)) dan tetapkan butang menu bot dengan `setChatMenuButton`.
 4. Tekan butang menu dalam sembang dengan bot; tab Status patut memaparkan nombor semasa.
 
-[Mod demo](#demo-mode) memaparkan setiap tab dengan data contoh tanpa pelayan Hermes. Had yang diketahui: mesej "Post to bot chat"
-tidak sampai kepada Hermes, dan log masuk bergantung pada nama dalaman Hermes (lihat [Known limitations](#known-limitations)).
+[Mod demo](#demo-mode) memaparkan setiap tab dengan data contoh tanpa pelayan Hermes. Had yang diketahui: Tanya Hermes memerlukan
+gateway Hermes berjalan, dan log masuk bergantung pada nama dalaman Hermes (lihat [Known limitations](#known-limitations)).
 
 ## Licence
 

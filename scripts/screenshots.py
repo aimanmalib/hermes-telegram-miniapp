@@ -13,7 +13,7 @@ BASE = sys.argv[1]
 OUT = Path(sys.argv[2]); OUT.mkdir(parents=True, exist_ok=True)
 only = set(sys.argv[3].split(",")) if len(sys.argv) > 3 else None
 # Tabs in tab-bar order. Buttons are clicked by position, so the labels may be in any language.
-TABS = ["status", "sessions", "cron", "logs", "brain", "send"]
+TABS = ["status", "sessions", "cron", "logs", "brain", "ask"]
 # (theme, lang, tabs to capture, file suffix). The Malay pass shows one tab to document the translation.
 PASSES = [("light", "en", TABS + ["usage"], ""), ("dark", "en", TABS + ["usage"], ""),
           ("light", "ms", ["cron"], "-ms")]
@@ -60,6 +60,14 @@ with sync_playwright() as p:
                 open_tab(page, "status")
                 page.evaluate("document.querySelector('.section-title-row').scrollIntoView({block: 'start'}); window.scrollBy(0, -110)")
                 page.wait_for_timeout(500)
+            elif key == "ask":
+                # Ask a preset and capture it mid-run (demo mode answers in a few seconds).
+                open_tab(page, "ask")
+                page.locator(".chip").first.click()
+                page.locator(".compose .btn-primary").first.click()
+                page.wait_for_selector(".ask-step.active", timeout=8000)
+                page.wait_for_selector(".ask-step.active:nth-child(2)", timeout=8000)
+                page.wait_for_timeout(400)
             else:
                 open_tab(page, key)
             save(page.screenshot(), f"{key}{suffix}-{theme}.png")

@@ -307,10 +307,11 @@ export const cronDelete = (id: string) =>
     method: "DELETE",
   });
 
-export const sendCommand = (text: string) =>
-  api<{ ok: boolean; message_id: number }>("/command", {
+/** Ask Hermes: a one-shot agent job whose answer Hermes sends to the admin's chat (decision 0008). */
+export const askHermes = (prompt: string) =>
+  api<{ ok: boolean; job: CronJob }>("/ask", {
     method: "POST",
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ prompt }),
   });
 
 export type LogFile = "agent" | "errors" | "gateway";

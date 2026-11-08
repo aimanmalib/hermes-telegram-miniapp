@@ -131,7 +131,7 @@ describe("keys built at run time", () => {
   });
 
   it("reads numbered lists up to the first gap, the same length in every language", () => {
-    const lengths = LANGS.map((lang) => tList("send.preset", lang).length);
+    const lengths = LANGS.map((lang) => tList("ask.preset", lang).length);
     expect(lengths[0]).toBeGreaterThan(0);
     expect(new Set(lengths).size).toBe(1);
     expect(tList("no.such.list")).toEqual([]);

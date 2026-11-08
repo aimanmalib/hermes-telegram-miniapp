@@ -5,6 +5,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-08
+
+Web and docs only. The plugin code is unchanged from 0.6.0; only its version lines moved.
+
+### Added
+
+- **Status gauges are green, amber or red** by band. The bands live in `web/src/config.json`, not in the tab.
+- **Spend over the last 7 days** as a small line under Usage, built from the sessions list (each session counts on the
+  day it was last active, the same rule `/usage` uses). Plain SVG, no chart library; the number of days is in
+  `web/src/config.json`.
+- **Demo video scripts** in `scripts/video/`: run a real Hermes dashboard on loopback with a throwaway home, seed it
+  through the agent and the plugin API, record the phone screens with WebKit and build a portrait mp4 with ffmpeg.
+  Text and timing live in `storyboard.json`. See `scripts/video/README.md`.
+
 ### Changed
 
 - **Tab bar icons are drawn, not emoji.** Six outline icons copied from Tabler Icons (MIT, attribution in
@@ -13,6 +27,7 @@ All notable changes to this project are documented here. The format follows
   or "Hermes unreachable"), with the user's initial on the right. The tab bar uses the main background with a hairline.
 - **Demo mode shows a small "Sample data" pill** in the header instead of the full-width yellow banner.
   `check:no-demo` now also looks for the pill text in production bundles.
+- README screenshots recaptured with the new icons, header and gauges.
 
 ## [0.6.0] - 2026-11-08
 

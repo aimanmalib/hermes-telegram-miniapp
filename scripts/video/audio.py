@@ -2,19 +2,28 @@
 
     python3 scripts/video/audio.py <manifest.json> <out.wav> <out.srt>
 
-Soundtrack: a soft generated chord bed (sine voices, slow attack) for the whole video, plus a short tick at
-every recorded tap and a two-note chime at the cues record.py marked (an Ask delivered, a reply arriving).
+Soundtrack: a music bed for the whole video, plus a short tick at every recorded tap and a two-note chime at
+the cues record.py marked (an Ask delivered, a reply arriving), each with its own gain (0 = left out).
+The bed comes from audio.bed.mode:
+  "file"  the audio file named by $VIDEO_BED_FILE (any format ffmpeg reads; a mono 16-bit WAV at the sample
+          rate needs no ffmpeg), looped with a crossfade when shorter than the video, cut to length, faded in
+          and out, scaled by file_gain. The file is not part of this repository: bring a track you may use.
+  "sine"  a soft generated chord bed (sine voices, slow attack); no third-party audio.
+"file" without a readable file falls back to "sine" and says so on stderr. Which bed was used (and the file's
+sha256) is written next to the wav as <name>.json, so a fallback cannot go out unnoticed.
 When voice.py has placed narration (segment["voice"]), each line is mixed in and the bed and cues are lowered
-under it ("bed_duck", with short ramps) so the words stay clear.
-Everything is synthesised here, so there is no third-party audio to license. compose.sh normalises the
-loudness with ffmpeg afterwards; the numbers here only set the balance between the parts.
+under it ("bed_duck", with short ramps) so the words stay clear. compose.sh normalises the loudness with ffmpeg
+afterwards; the numbers here only set the balance between the parts.
 
 Subtitles: one cue per segment, from the caption burned into the frame (cards: their lines), so players
 that show captions and viewers who cannot read the burned-in text get the same words.
 Settings (chords, gains, cue sounds) come from the storyboard's "audio" block, copied into the manifest.
 """
+import hashlib
 import json
 import math
+import os
+import subprocess
 import sys
 import wave
 from array import array
@@ -64,6 +73,78 @@ def cue_times(manifest):
     return sorted((start + t, kind) for start, seg in segment_times(manifest) for t, kind in seg.get("events", []))
 
 
+def decode(path, rate):
+    """The file as mono floats in -1..1 at `rate`: read directly when it is already a mono 16-bit WAV at that rate,
+    otherwise decoded by ffmpeg."""
+    try:
+        with wave.open(path, "rb") as w:
+            if w.getnchannels() == 1 and w.getsampwidth() == 2 and w.getframerate() == rate:
+                pcm = array("h")
+                pcm.frombytes(w.readframes(w.getnframes()))
+                return array("f", (x / 32768 for x in pcm))
+    except (wave.Error, EOFError):
+        pass
+    raw = subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-i", path, "-f", "s16le", "-acodec", "pcm_s16le",
+                          "-ac", "1", "-ar", str(rate), "-"], check=True, capture_output=True).stdout
+    pcm = array("h")
+    pcm.frombytes(raw[:len(raw) // 2 * 2])
+    return array("f", (x / 32768 for x in pcm))
+
+
+def loop_to(pcm, n, xfade):
+    """`pcm` repeated until it is `n` samples long, each repeat joined with a linear crossfade of `xfade` samples."""
+    if not pcm:
+        raise ValueError("empty bed file")
+    out = array("f", pcm[:n])
+    xfade = max(0, min(xfade, len(pcm) // 2))
+    while len(out) < n:
+        start = len(out) - xfade
+        for j in range(xfade):
+            t = (j + 1) / (xfade + 1)
+            out[start + j] = out[start + j] * (1 - t) + pcm[j] * t
+        out.extend(pcm[xfade:xfade + n - len(out)])
+    return out
+
+
+def fade_ends(buf, cfg, rate):
+    fade_in, fade_out = max(1.0, cfg["fade_in_sec"] * rate), max(1.0, cfg["fade_out_sec"] * rate)
+    n = len(buf)
+    for k in range(n):
+        buf[k] *= min(1.0, k / fade_in, (n - 1 - k) / fade_out)
+    return buf
+
+
+def file_bed(total, cfg, rate, path):
+    """The bed from an audio file: looped, cut to the video, faded at both ends, scaled by file_gain."""
+    n = int(total * rate)
+    pcm = loop_to(decode(path, rate), n, int(cfg.get("loop_crossfade_sec", 1.0) * rate))
+    gain = cfg["file_gain"]
+    for k in range(n):
+        pcm[k] *= gain
+    return fade_ends(pcm, cfg, rate)
+
+
+def choose_bed(total, cfg, rate, env=os.environ):
+    """(buffer, record): the bed the storyboard asks for, or the sine bed with the reason it fell back."""
+    mode = cfg.get("mode", "sine")
+    if mode not in ("file", "sine"):
+        raise SystemExit(f"audio.bed.mode must be 'file' or 'sine', not {mode!r}")
+    if mode == "file":
+        path = env.get("VIDEO_BED_FILE", "")
+        reason = "VIDEO_BED_FILE is not set" if not path else None if os.path.isfile(path) else "VIDEO_BED_FILE is not a file"
+        if reason is None:
+            try:
+                buf = file_bed(total, cfg, rate, path)
+            except (OSError, ValueError, subprocess.CalledProcessError) as e:
+                reason = f"could not read VIDEO_BED_FILE: {type(e).__name__}"
+            else:
+                sha = hashlib.sha256(open(path, "rb").read()).hexdigest()
+                return buf, {"bed": "file", "file": os.path.basename(path), "sha256": sha}
+        print(f"bed: sine fallback ({reason})", file=sys.stderr)
+        return bed(total, cfg, rate), {"bed": "sine", "fallback": reason}
+    return bed(total, cfg, rate), {"bed": "sine"}
+
+
 def bed(total, cfg, rate):
     """The chord bed: each chord fades in over attack_sec and hands over to the next; the whole fades at both ends."""
     n = int(total * rate)
@@ -80,10 +161,7 @@ def bed(total, cfg, rate):
         for k in range(a, b):
             env = min(1.0, (k - a) / ramp, (b - k) / ramp)
             buf[k] += env * sum(g * math.sin(w * k) for w, g in voices)
-    fade_in, fade_out = cfg["fade_in_sec"] * rate, cfg["fade_out_sec"] * rate
-    for k in range(n):
-        buf[k] *= min(1.0, k / fade_in, (n - k) / fade_out)
-    return buf
+    return fade_ends(buf, cfg, rate)
 
 
 def add_tone(buf, at, freqs, ms, gain, rate):
@@ -98,15 +176,17 @@ def add_tone(buf, at, freqs, ms, gain, rate):
         buf[k] += gain * env * sum(math.sin(2 * math.pi * f * j / rate) for f in freqs) / len(freqs)
 
 
-def soundtrack(manifest):
+def soundtrack(manifest, env=os.environ):
+    """(pcm, rate, record): the mixed soundtrack and which bed it used."""
     cfg = manifest["audio"]
     rate = cfg["sample_rate"]
     total = sum(seg["duration"] for seg in manifest["segments"])
-    buf = bed(total, cfg["bed"], rate)
+    buf, record = choose_bed(total, cfg["bed"], rate, env)
     cues = cfg["cues"]
     for at, kind in cue_times(manifest):
         c = cues[kind]
-        add_tone(buf, at, c.get("freqs", [c.get("freq")]), c["ms"], c["gain"], rate)
+        if c["gain"] > 0:
+            add_tone(buf, at, c.get("freqs", [c.get("freq")]), c["ms"], c["gain"], rate)
     lines = voice_times(manifest)
     if lines:
         vc = cfg["voice"]
@@ -127,7 +207,7 @@ def soundtrack(manifest):
                 buf[a + j] += x * gain
     peak = max(1e-9, max(abs(x) for x in buf))
     scale = min(1.0, 0.89 / peak)
-    return array("h", (int(x * scale * 32767) for x in buf)), rate
+    return array("h", (int(x * scale * 32767) for x in buf)), rate, record
 
 
 def srt_time(t):
@@ -146,7 +226,7 @@ def subtitles(manifest):
 
 def main(manifest_path, wav_path, srt_path):
     manifest = json.load(open(manifest_path))
-    pcm, rate = soundtrack(manifest)
+    pcm, rate, record = soundtrack(manifest)
     with wave.open(wav_path, "wb") as w:
         w.setnchannels(1)
         w.setsampwidth(2)
@@ -154,7 +234,9 @@ def main(manifest_path, wav_path, srt_path):
         w.writeframes(pcm.tobytes())
     with open(srt_path, "w", encoding="utf-8") as fh:
         fh.write(subtitles(manifest))
-    print(f"soundtrack {len(pcm) / rate:.1f}s, {len(cue_times(manifest))} cues; subtitles -> {srt_path}")
+    with open(os.path.splitext(wav_path)[0] + ".json", "w", encoding="utf-8") as fh:
+        json.dump(record, fh, indent=2)
+    print(f"soundtrack {len(pcm) / rate:.1f}s, bed {record['bed']}, {len(cue_times(manifest))} cues; subtitles -> {srt_path}")
 
 
 if __name__ == "__main__":

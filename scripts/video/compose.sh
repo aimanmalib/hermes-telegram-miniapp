@@ -9,6 +9,8 @@
 # to the video as <name>.srt, for players and uploads that take a separate caption file.
 # A screen shot may keep several parts of its recording ("ranges", a jump cut); they are joined first.
 # SAMPLE_DIR (optional) receives one PNG from the middle of each segment, for checking by eye.
+# VIDEO_BED_FILE (read by audio.py) is the music bed when the storyboard's audio.bed.mode is "file"; which bed was
+# used is written next to the video as <name>.soundtrack.json (a sine fallback is also printed).
 set -euo pipefail
 
 : "${VIDEO_OUT:?set VIDEO_OUT to the record.py output folder}"
@@ -83,6 +85,7 @@ ffmpeg -nostdin -loglevel error -y -f concat -safe 0 -i "$list" -i "$work/soundt
   -t "$total" -movflags +faststart "$tmp"
 mv "$tmp" "$VIDEO_FILE"
 cp "$work/subtitles.srt" "$srt"
+cp "$work/soundtrack.json" "${VIDEO_FILE%.*}.soundtrack.json"
 echo "wrote $VIDEO_FILE (${total}s planned) and $srt"
 
 if [[ -n "${SAMPLE_DIR:-}" ]]; then

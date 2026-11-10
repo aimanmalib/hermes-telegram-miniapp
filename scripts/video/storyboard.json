@@ -158,6 +158,9 @@
     "true_peak": -1.5,
     "sample_rate": 48000,
     "bed": {
+      "mode": "file",
+      "file_gain": 0.8,
+      "loop_crossfade_sec": 1.0,
       "chord_sec": 4,
       "gain": 0.13,
       "attack_sec": 1.2,
@@ -196,7 +199,7 @@
       "tap": {
         "freq": 620,
         "ms": 35,
-        "gain": 0.06
+        "gain": 0
       },
       "chime": {
         "freqs": [
@@ -204,7 +207,7 @@
           990.0
         ],
         "ms": 600,
-        "gain": 0.08
+        "gain": 0
       }
     },
     "voice": {
@@ -222,5 +225,5 @@
       "tail_sec": 0.3
     }
   },
-  "audio_note": "Generated music bed and UI cues (scripts/video/audio.py); narration is the author's AI voice clone (ElevenLabs, scripts/video/voice.py). No third-party music."
+  "audio_note": "Music bed: an instrumental track generated with ElevenLabs Music under the author's plan, supplied at build time ($VIDEO_BED_FILE) and not part of this repository; without it scripts/video/audio.py falls back to a generated sine bed. Narration is the author's AI voice clone (ElevenLabs, scripts/video/voice.py)."
 }

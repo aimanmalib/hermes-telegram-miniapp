@@ -11,8 +11,9 @@ Scripts for recording the demo video against a real Hermes Agent, not the demo b
 | `storyboard.json` | Shots, captions, durations, phone frame size and the strings that must never be on screen (`FORBID_ON_SCREEN` adds your own, such as host names). Edit this, not the scripts. |
 | `record.py` | Records each screen shot with WebKit (iPhone 13, touch ripples, no pointer) against the Vite dev server, renders the cards and frames (`frames.py`), and writes `manifest.json`. Stops if a forbidden string or the token appears in the kept part of a shot. |
 | `voice.py` | Narration: one ElevenLabs clip per storyboard `voice` line (cached by a hash of text, voice, model and settings), trimmed of silence and checked to fit before the next line. Run by `compose.sh`; `VOICE_OFF=1` skips it. |
-| `audio.py` | Writes the soundtrack (a generated chord bed, a soft tick per recorded tap, a chime when an answer arrives; no third-party music), lowered under the narration and the subtitles (one cue per caption) from `manifest.json`. |
-| `compose.sh` | Builds the mp4 from `manifest.json` with ffmpeg: H.264, yuv420p, AAC soundtrack normalised to the storyboard's loudness, an English subtitle track, `+faststart`, and the same subtitles as a `.srt` next to the video. `SAMPLE_DIR=<dir>` also saves one frame per shot. |
+| `audio.py` | Writes the soundtrack and the subtitles (one cue per caption) from `manifest.json`. The music bed is set by the storyboard's `audio.bed.mode`: `file` loops, trims and fades the track in `VIDEO_BED_FILE`; `sine` is a generated chord bed. Without a readable file, `file` falls back to `sine`, prints `bed: sine fallback (...)` and records it. The bed is lowered under the narration. Tap and chime sounds have their own gains (0 leaves them out). |
+| `remix.py` | `remix.py <manifest.json> <storyboard.json>` copies the storyboard's `audio` block into a recorded manifest, so changed music or narration settings can be mixed again without recording the screen. Run it on a copy of the recording folder. |
+| `compose.sh` | Builds the mp4 from `manifest.json` with ffmpeg: H.264, yuv420p, AAC soundtrack normalised to the storyboard's loudness, an English subtitle track, `+faststart`, and the same subtitles as a `.srt` next to the video. `<name>.soundtrack.json` next to the video says which bed was used (`file` with the track's sha256, or `sine`). `SAMPLE_DIR=<dir>` also saves one frame per shot. |
 
 ## Environment
 
@@ -25,6 +26,7 @@ Scripts for recording the demo video against a real Hermes Agent, not the demo b
 | `OUT_DIR` | PID file, dashboard log, and `dashboard-token` (mode 0600). |
 | `DASHBOARD_PORT` | Loopback port, default `9119` (the Vite dev proxy target). |
 | `ELEVENLABS_API_KEY_FILE`, `ELEVENLABS_VOICE_ID` | Narration: a `KEY=VALUE` file holding `ELEVENLABS_API_KEY` (never printed or copied) and the voice to use. The demo uses the author's own voice clone and says so on the closing card. |
+| `VIDEO_BED_FILE` | The music track for `audio.bed.mode: "file"` (any format ffmpeg reads). Bring a track you are licensed to use; it is not part of this repository. |
 | `RIG_ADMIN_ID` | A made-up Telegram user id, written as `TELEGRAM_OWNER_ID` so Ask has an admin chat. Also turns on the Bot API stand-in. |
 | `BOT_API_PORT` | Loopback port of the stand-in, default `9180`. Messages go to `$OUT_DIR/bot-api-messages.jsonl`. |
 | `RIG_SUMMARY` | Where `seed.py` writes its summary, default `$OUT_DIR/rig.json`. |
@@ -48,6 +50,16 @@ Recording, with the rig up and the Vite dev server on port 5173:
 VIDEO_OUT=out uv run --with playwright==1.58.0 --with pillow python scripts/video/record.py
 VIDEO_OUT=out VIDEO_FILE=out/demo.mp4 SAMPLE_DIR=out/samples scripts/video/compose.sh
 ```
+
+To mix a new soundtrack for an existing recording, copy the recording folder and run, in the copy:
+
+```sh
+python3 scripts/video/remix.py out2/manifest.json scripts/video/storyboard.json
+VIDEO_BED_FILE=music.mp3 VIDEO_OUT=out2 VIDEO_FILE=out2/demo.mp4 scripts/video/compose.sh
+```
+
+The music in the published demo was generated with ElevenLabs Music under the author's paid plan, which allows
+commercial use without attribution. The narration is the author's own voice clone.
 
 The Ask shot waits for Hermes's cron ticker (up to a minute) and keeps two parts of the recording: asking, and
 the answer arriving. A chip over the second part says the wait was skipped; nothing is sped up or replayed. The reply

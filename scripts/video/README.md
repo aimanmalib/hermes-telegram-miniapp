@@ -10,7 +10,8 @@ Scripts for recording the demo video against a real Hermes Agent, not the demo b
 | `seed.json` | The prompts and cron jobs `seed.py` uses. Edit this, not the script. |
 | `storyboard.json` | Shots, captions, durations, phone frame size and the strings that must never be on screen (`FORBID_ON_SCREEN` adds your own, such as host names). Edit this, not the scripts. |
 | `record.py` | Records each screen shot with WebKit (iPhone 13, touch ripples, no pointer) against the Vite dev server, renders the cards and frames (`frames.py`), and writes `manifest.json`. Stops if a forbidden string or the token appears in the kept part of a shot. |
-| `audio.py` | Writes the soundtrack (a generated chord bed, a tick per recorded tap, a chime when an answer arrives; no third-party audio) and the subtitles (one cue per caption) from `manifest.json`. |
+| `voice.py` | Narration: one ElevenLabs clip per storyboard `voice` line (cached by a hash of text, voice, model and settings), trimmed of silence and checked to fit before the next line. Run by `compose.sh`; `VOICE_OFF=1` skips it. |
+| `audio.py` | Writes the soundtrack (a generated chord bed, a soft tick per recorded tap, a chime when an answer arrives; no third-party music), lowered under the narration and the subtitles (one cue per caption) from `manifest.json`. |
 | `compose.sh` | Builds the mp4 from `manifest.json` with ffmpeg: H.264, yuv420p, AAC soundtrack normalised to the storyboard's loudness, an English subtitle track, `+faststart`, and the same subtitles as a `.srt` next to the video. `SAMPLE_DIR=<dir>` also saves one frame per shot. |
 
 ## Environment
@@ -23,6 +24,7 @@ Scripts for recording the demo video against a real Hermes Agent, not the demo b
 | `MODEL_API_KEY_FILE`, `MODEL_API_KEY_VAR` | `KEY=VALUE` file holding the endpoint key, and the variable name in it (default `MODEL_API_KEY`). The key is copied to `$HERMES_HOME/.env` (mode 0600) and never printed. |
 | `OUT_DIR` | PID file, dashboard log, and `dashboard-token` (mode 0600). |
 | `DASHBOARD_PORT` | Loopback port, default `9119` (the Vite dev proxy target). |
+| `ELEVENLABS_API_KEY_FILE`, `ELEVENLABS_VOICE_ID` | Narration: a `KEY=VALUE` file holding `ELEVENLABS_API_KEY` (never printed or copied) and the voice to use. The demo uses the author's own voice clone and says so on the closing card. |
 | `RIG_ADMIN_ID` | A made-up Telegram user id, written as `TELEGRAM_OWNER_ID` so Ask has an admin chat. Also turns on the Bot API stand-in. |
 | `BOT_API_PORT` | Loopback port of the stand-in, default `9180`. Messages go to `$OUT_DIR/bot-api-messages.jsonl`. |
 | `RIG_SUMMARY` | Where `seed.py` writes its summary, default `$OUT_DIR/rig.json`. |

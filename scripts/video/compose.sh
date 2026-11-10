@@ -69,11 +69,16 @@ done
 mkdir -p "$(dirname "$VIDEO_FILE")"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 srt="${VIDEO_FILE%.*}.srt"
+python3 "$here/voice.py" "$manifest"   # narration clips (ElevenLabs, cached); VOICE_OFF=1 skips
 python3 "$here/audio.py" "$manifest" "$work/soundtrack.wav" "$work/subtitles.srt"
 tmp="$VIDEO_FILE.tmp.mp4"
+# Two-pass loudnorm: measure the mix, then apply a linear gain to the target (single pass undershoots on speech with pauses).
+meas=$(ffmpeg -nostdin -hide_banner -i "$work/soundtrack.wav" -af "loudnorm=I=$lufs:TP=$tp:LRA=11:print_format=json" -f null - 2>&1 \
+  | python3 -c 'import json,re,sys; m=json.loads(re.search(r"\{[^{}]*\}", sys.stdin.read()).group(0))
+print(":".join(f"measured_{k}={m["input_"+k]}" for k in ("i", "tp", "lra", "thresh")) + f":offset={m["target_offset"]}")')
 ffmpeg -nostdin -loglevel error -y -f concat -safe 0 -i "$list" -i "$work/soundtrack.wav" -i "$work/subtitles.srt" \
   -map 0:v -map 1:a -map 2:s -c:v copy \
-  -af "loudnorm=I=$lufs:TP=$tp:LRA=11,aresample=48000" -c:a aac -b:a 160k -ac 2 \
+  -af "loudnorm=I=$lufs:TP=$tp:LRA=11:$meas:linear=true,aresample=48000" -c:a aac -b:a 160k -ac 2 \
   -c:s mov_text -metadata:s:s:0 language=eng -metadata:s:a:0 language=eng \
   -t "$total" -movflags +faststart "$tmp"
 mv "$tmp" "$VIDEO_FILE"

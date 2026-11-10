@@ -94,3 +94,21 @@ def test_stub_records_sent_messages(stub, tmp_path, monkeypatch):
     assert line["parse_mode"] == "MarkdownV2"
     assert stub.result_for("getMe", {})["is_bot"] is True
     assert stub.result_for("setMyCommands", {}) is True
+
+
+def test_voice_lines_fit_their_shots_and_are_disclosed():
+    board = json.loads((video_dir / "storyboard.json").read_text())
+    voice = [(s, v) for s in board["shots"] for v in s.get("voice", [])]
+    assert voice, "the storyboard has narration"
+    for shot, v in voice:
+        assert 0 <= v["at"] < shot["duration"] and v["text"].strip()
+    close = next(s for s in board["shots"] if s["id"] == "close")
+    assert any("voice clone" in line for line in close["lines"])  # AI narration is disclosed on screen
+    assert "voice" in board["audio"] and 0 < board["audio"]["voice"]["bed_duck"] < 1
+
+
+def test_bed_is_lowered_under_narration(audio):
+    g = audio.duck_curve(100, [(40, 60)], 0.3, 10)
+    assert g[0] == 1.0 and g[99] == 1.0
+    assert all(abs(g[k] - 0.3) < 1e-6 for k in range(40, 60))
+    assert 0.3 < g[35] < 1.0 and 0.3 < g[64] < 1.0

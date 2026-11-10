@@ -31,6 +31,12 @@
       "lines": [
         "Hermes Telegram Mini App",
         "Run your Hermes agent from Telegram"
+      ],
+      "voice": [
+        {
+          "at": 0.3,
+          "text": "Meet Hermes, right inside Telegram."
+        }
       ]
     },
     {
@@ -50,33 +56,67 @@
         "delivered_title": "Delivered to your Telegram chat",
         "delivered_note": "Hermes's real reply, as Telegram shows it",
         "hold_reply_sec": 5.0
-      }
+      },
+      "voice": [
+        {
+          "at": 0.6,
+          "text": "Ask your agent anything from your phone. It runs once, on your real Hermes."
+        },
+        {
+          "at": 9.2,
+          "text": "Seconds later, the answer lands in your Telegram chat."
+        }
+      ]
     },
     {
       "id": "status",
       "kind": "app",
       "duration": 8,
       "needs_live": true,
-      "caption": "Live from a real Hermes v{hermes_version}: host, sessions and cron."
+      "caption": "Live from a real Hermes v{hermes_version}: host, sessions and cron.",
+      "voice": [
+        {
+          "at": 0.4,
+          "text": "Live status at a glance: host load, sessions and cron jobs."
+        }
+      ]
     },
     {
       "id": "cron",
       "kind": "app",
       "duration": 10,
-      "caption": "Run, pause and edit cron jobs. Failed runs are flagged."
+      "caption": "Run, pause and edit cron jobs. Failed runs are flagged.",
+      "voice": [
+        {
+          "at": 0.4,
+          "text": "Pause, resume, run now, or edit any cron job. If a run fails, you'll see it."
+        }
+      ]
     },
     {
       "id": "sessions",
       "kind": "app",
       "duration": 7,
-      "caption": "Read what your agent did, step by step."
+      "caption": "Read what your agent did, step by step.",
+      "voice": [
+        {
+          "at": 0.4,
+          "text": "And you can read exactly what your agent did."
+        }
+      ]
     },
     {
       "id": "brain",
       "kind": "app",
       "duration": 8,
       "caption": "Browse skills. English and Malay built in.",
-      "filter": "review"
+      "filter": "review",
+      "voice": [
+        {
+          "at": 0.4,
+          "text": "Skills are searchable, in English or Malay."
+        }
+      ]
     },
     {
       "id": "security",
@@ -88,6 +128,12 @@
         "Fail-closed admin list",
         "Your proxy forwards only /api/plugins/telegram-app/*",
         "Contract-tested against real Hermes in CI"
+      ],
+      "voice": [
+        {
+          "at": 0.3,
+          "text": "Login is verified by Telegram. No VPN, no password."
+        }
       ]
     },
     {
@@ -97,7 +143,13 @@
       "lines": [
         "github.com/aimanmalib/hermes-telegram-miniapp",
         "Submitted to the Hermes plugin catalog as telegram-app",
-        "MIT licensed"
+        "MIT licensed · Narration: the author's AI voice clone"
+      ],
+      "voice": [
+        {
+          "at": 0.3,
+          "text": "Open source, and in the Hermes plugin catalog."
+        }
       ]
     }
   ],
@@ -107,7 +159,7 @@
     "sample_rate": 48000,
     "bed": {
       "chord_sec": 4,
-      "gain": 0.16,
+      "gain": 0.13,
       "attack_sec": 1.2,
       "fade_in_sec": 1.5,
       "fade_out_sec": 3,
@@ -137,24 +189,38 @@
           392.0
         ]
       ],
-      "bass_gain": 0.1,
-      "shimmer_gain": 0.025
+      "bass_gain": 0.08,
+      "shimmer_gain": 0.0
     },
     "cues": {
       "tap": {
-        "freq": 1250,
-        "ms": 45,
-        "gain": 0.22
+        "freq": 620,
+        "ms": 35,
+        "gain": 0.06
       },
       "chime": {
         "freqs": [
-          880.0,
-          1318.51
+          660.0,
+          990.0
         ],
-        "ms": 700,
-        "gain": 0.18
+        "ms": 600,
+        "gain": 0.08
       }
+    },
+    "voice": {
+      "model": "eleven_multilingual_v2",
+      "settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.85,
+        "style": 0.15,
+        "use_speaker_boost": true
+      },
+      "gain": 0.9,
+      "bed_duck": 0.3,
+      "duck_ramp_sec": 0.35,
+      "min_gap_sec": 0.25,
+      "tail_sec": 0.3
     }
   },
-  "audio_note": "Generated music bed and UI cues (scripts/video/audio.py); no third-party audio."
+  "audio_note": "Generated music bed and UI cues (scripts/video/audio.py); narration is the author's AI voice clone (ElevenLabs, scripts/video/voice.py). No third-party music."
 }

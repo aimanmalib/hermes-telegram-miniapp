@@ -4,6 +4,8 @@
 
 Soundtrack: a soft generated chord bed (sine voices, slow attack) for the whole video, plus a short tick at
 every recorded tap and a two-note chime at the cues record.py marked (an Ask delivered, a reply arriving).
+When voice.py has placed narration (segment["voice"]), each line is mixed in and the bed and cues are lowered
+under it ("bed_duck", with short ramps) so the words stay clear.
 Everything is synthesised here, so there is no third-party audio to license. compose.sh normalises the
 loudness with ffmpeg afterwards; the numbers here only set the balance between the parts.
 
@@ -16,6 +18,36 @@ import math
 import sys
 import wave
 from array import array
+
+
+def voice_times(manifest):
+    """[(seconds into the video, line)] for every narration line voice.py placed."""
+    return sorted(((start + v["at"], v) for start, seg in segment_times(manifest) for v in seg.get("voice", [])),
+                  key=lambda x: x[0])
+
+
+def read_wav(path, rate):
+    with wave.open(path, "rb") as w:
+        if w.getnchannels() != 1 or w.getsampwidth() != 2 or w.getframerate() != rate:
+            raise SystemExit(f"{path}: expected mono 16-bit {rate} Hz")
+        pcm = array("h")
+        pcm.frombytes(w.readframes(w.getnframes()))
+    return pcm
+
+
+def duck_curve(n, spans, depth, ramp):
+    """1.0 everywhere except inside the spoken spans, where it falls to `depth` with linear ramps of `ramp` samples."""
+    g = array("f", [1.0]) * n
+    for a, b in spans:
+        for k in range(max(0, a - ramp), min(n, b + ramp)):
+            if k < a:
+                d = 1.0 - (1.0 - depth) * (k - (a - ramp)) / ramp
+            elif k >= b:
+                d = depth + (1.0 - depth) * (k - b) / ramp
+            else:
+                d = depth
+            g[k] = min(g[k], d)
+    return g
 
 
 def segment_times(manifest):
@@ -75,6 +107,24 @@ def soundtrack(manifest):
     for at, kind in cue_times(manifest):
         c = cues[kind]
         add_tone(buf, at, c.get("freqs", [c.get("freq")]), c["ms"], c["gain"], rate)
+    lines = voice_times(manifest)
+    if lines:
+        vc = cfg["voice"]
+        spans, clips = [], []
+        for at, v in lines:
+            pcm = read_wav(v["wav"], rate)
+            a = int(at * rate)
+            spans.append((a, a + len(pcm)))
+            clips.append((a, pcm))
+        g = duck_curve(len(buf), spans, vc["bed_duck"], int(vc["duck_ramp_sec"] * rate))
+        for k in range(len(buf)):
+            buf[k] *= g[k]
+        gain = vc["gain"] / 32768
+        for a, pcm in clips:
+            for j, x in enumerate(pcm):
+                if a + j >= len(buf):
+                    break
+                buf[a + j] += x * gain
     peak = max(1e-9, max(abs(x) for x in buf))
     scale = min(1.0, 0.89 / peak)
     return array("h", (int(x * scale * 32767) for x in buf)), rate

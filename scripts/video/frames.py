@@ -94,6 +94,8 @@ def render_frames(browser, board, summary, out: Path):
     segments = []
     for shot in board["shots"]:
         seg = {"id": shot["id"], "kind": shot["kind"], "duration": shot["duration"]}
+        if shot.get("voice"):
+            seg["voice_lines"] = shot["voice"]  # voice.py turns these into timed clips
         if shot["kind"] == "card":
             seg["png"] = shoot(card_html(shot, board), f"{shot['id']}-card.png")
             seg["subtitle"] = " · ".join(shot["lines"])

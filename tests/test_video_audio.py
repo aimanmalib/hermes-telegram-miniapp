@@ -246,3 +246,38 @@ def test_remix_replaces_only_the_audio_block(tmp_path):
     assert {k: v for k, v in out.items() if k != "audio"} == {k: v for k, v in manifest.items() if k != "audio"}
     assert remix.remix(out, board)[1] == []
     assert not (tmp_path / "manifest.json.tmp").exists()
+
+
+def recording(folder, files):
+    for name in files:
+        (folder / name).parent.mkdir(parents=True, exist_ok=True)
+        (folder / name).write_text("x")
+    return {"audio": {"lufs": -14}, "segments": [
+        {"id": "a", "kind": "card", "png": str(folder / "frames/a.png"), "duration": 1},
+        {"id": "b", "kind": "app", "clip": str(folder / "raw/b.webm"), "duration": 2, "caption": "/not a path here",
+         "voice": [{"at": 0, "text": "Hi", "wav": str(folder / "voice/1.wav")}]}]}
+
+
+def test_remix_moves_paths_into_a_copied_recording(tmp_path):
+    remix = load("remix")
+    files = ["frames/a.png", "raw/b.webm", "voice/1.wav"]
+    old, new = tmp_path / "v3", tmp_path / "v4"
+    manifest = recording(old, files)
+    recording(new, files)
+    (new / "manifest.json").write_text(json.dumps(manifest))
+    (tmp_path / "storyboard.json").write_text(json.dumps({"audio": {"lufs": -14}}))
+    remix.main(str(new / "manifest.json"), str(tmp_path / "storyboard.json"))
+    out = json.loads((new / "manifest.json").read_text())
+    assert out["segments"][0]["png"] == str(new / "frames/a.png")
+    assert out["segments"][1]["clip"] == str(new / "raw/b.webm")
+    assert out["segments"][1]["voice"][0]["wav"] == str(new / "voice/1.wav")
+    assert out["segments"][1]["caption"] == "/not a path here"
+    assert remix.rebase(out, str(new)) == (out, None)
+
+
+def test_remix_leaves_paths_when_the_copy_lacks_a_file(tmp_path):
+    remix = load("remix")
+    old, new = tmp_path / "v3", tmp_path / "v4"
+    manifest = recording(old, ["frames/a.png", "raw/b.webm", "voice/1.wav"])
+    recording(new, ["frames/a.png", "raw/b.webm"])
+    assert remix.rebase(manifest, str(new)) == (manifest, None)

@@ -19,7 +19,7 @@ No VPN, password or new account: login checks the `initData` Telegram signs for 
 
 <p align="center"><img src="https://raw.githubusercontent.com/aimanmalib/hermes-telegram-miniapp/main/docs/demo.gif" width="320" alt="Ten-second clip: a question asked in the panel runs on a real Hermes v0.23.0 and the reply arrives in the chat (the chat screen is a labelled mock)"></p>
 
-Built for the Hermes Agent Plugin Hackathon by Nous Research, November 2026.
+Built for the Hermes Agent Plugin Hackathon by Nous Research, November 2026. [Watch the demo video on X](https://x.com/aimanmalib_/status/2120142003367526476).
 
 [Bahasa Melayu ↓](#bahasa-melayu)
 

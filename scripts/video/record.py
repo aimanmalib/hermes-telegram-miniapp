@@ -142,22 +142,12 @@ def open_app(s):
     s.pause(1.0)
 
 
-def shot_open(s):
-    mock_page(s, s.shot["mock"])
-    s.pause(0.3)
-    s.mark()
-    s.pause(2.2)
-    s.tap(s.page.locator("#menu"), after=0)
-    s.page.frame_locator("iframe").locator(".tab-bar button").first.wait_for()
-
-
 def shot_status(s):
     open_app(s)
     s.mark()
-    s.pause(2.5)
-    s.scroll(420, after=1.6)
-    s.tap(s.page.locator(".filter-pill").nth(1), after=2.2)
-    s.scroll(-420, after=1.0)
+    s.pause(2.8)
+    s.scroll(260, after=2.2)  # host and Hermes counts; the spend chart is left out (the rig's model is free, so it reads $0)
+    s.scroll(-260, after=1.2)
 
 
 def shot_cron(s):
@@ -215,13 +205,43 @@ def shot_brain(s):
     s.scroll(220, after=1.5)
 
 
-def mock_page(s, mock):
-    """Serve telegram-mock.html (filled from the storyboard) from the app's origin and open it."""
-    mock = dict(mock, app_url=f"{app}/")
-    html = (here / "telegram-mock.html").read_text().replace(
-        "<script>", f"<script>window.MOCK = {json.dumps(mock)};</script>\n<script>", 1)
-    s.page.route(f"{app}/__mock__", lambda r: r.fulfill(status=200, content_type="text/html", body=html))
-    s.page.goto(f"{app}/__mock__", wait_until="load")
+# Video-only overlays drawn over the recorded app: a small chip over the jump cut, and the reply Hermes delivered.
+# Both are labelled for what they are; the app itself is never changed.
+overlay = """
+(() => {
+  const css = document.createElement('style');
+  css.textContent = `
+  .vid-chip{position:fixed;left:50%;top:76px;transform:translateX(-50%);z-index:2147483646;padding:6px 14px;border-radius:999px;
+    background:rgba(20,24,30,.92);color:#e8eef5;font:600 13px/1.3 -apple-system,system-ui,sans-serif;border:1px solid rgba(94,181,247,.5);
+    opacity:0;transition:opacity 250ms;white-space:nowrap}
+  .vid-chip.on{opacity:1}
+  .vid-reply{position:fixed;left:12px;right:12px;bottom:96px;z-index:2147483646;border-radius:18px;padding:14px 16px 16px;
+    background:#1b2733;color:#f2f5f9;box-shadow:0 18px 48px rgba(0,0,0,.55);border:1px solid rgba(94,181,247,.35);
+    font:15px/1.4 -apple-system,system-ui,sans-serif;transform:translateY(24px);opacity:0;transition:transform 380ms ease-out,opacity 380ms}
+  .vid-reply.on{transform:none;opacity:1}
+  .vid-reply b{display:block;color:#5eb5f7;font-size:13px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
+  .vid-reply small{display:block;color:#93a3b5;font-size:12px;margin-bottom:10px}
+  .vid-reply p{margin:0;white-space:pre-wrap;max-height:46vh;overflow:hidden} .vid-reply strong{font-weight:700;color:#fff}`;
+  document.head.appendChild(css);
+  window.vidChip = (t) => { let c = document.querySelector('.vid-chip');
+    if (!c) { c = document.createElement('div'); c.className = 'vid-chip'; document.body.appendChild(c); }
+    c.textContent = t; requestAnimationFrame(() => c.classList.add('on')); };
+  window.vidChipOff = () => { const c = document.querySelector('.vid-chip'); if (c) c.classList.remove('on'); };
+  // Telegram MarkdownV2 as Telegram shows it: backslash-x = literal x, *bold*, _italic_. Built as DOM nodes, never as HTML.
+  const mdv2 = (p, text) => { let bold = false, ital = false, buf = '';
+    const flush = () => { if (!buf) return; const e = document.createElement(bold ? 'strong' : ital ? 'em' : 'span');
+      e.textContent = buf; p.appendChild(e); buf = ''; };
+    for (let i = 0; i < text.length; i++) { const c = text[i];
+      if (c === '\\\\' && i + 1 < text.length) { buf += text[++i]; }
+      else if (c === '*') { flush(); bold = !bold; } else if (c === '_') { flush(); ital = !ital; } else buf += c; }
+    flush(); };
+  window.vidReply = (title, note, text, mode) => { const d = document.createElement('div'); d.className = 'vid-reply';
+    const b = document.createElement('b'); b.textContent = title; const n = document.createElement('small'); n.textContent = note;
+    const p = document.createElement('p'); if (mode === 'MarkdownV2') mdv2(p, text); else p.textContent = text;
+    d.append(b, n, p); document.body.appendChild(d);
+    requestAnimationFrame(() => requestAnimationFrame(() => d.classList.add('on'))); };
+})();
+"""
 
 
 def delivered_after(since):
@@ -236,16 +256,13 @@ def delivered_after(since):
 
 
 def shot_ask(s):
-    """Ask in the panel inside the mock chat, cut over the wait for Hermes's cron ticker, then show the delivered
-    reply in the chat. The reply is what Hermes actually sent to the rig's Bot API stand-in."""
+    """Ask in the panel, cut over the wait for Hermes's cron ticker, then show the reply Hermes delivered. The reply
+    is the text Hermes actually sent to the rig's Bot API stand-in, shown in a labelled card (no mock chat screen)."""
     a = s.shot["ask"]
-    mock_page(s, s.shot["mock"])
-    s.page.locator("#menu").tap()
-    app_frame = s.page.frame_locator("iframe")
-    app_frame.locator(".tab-bar button").first.wait_for()
-    s.pause(1.0)
-    app_frame.locator(".tab-bar button").nth(tabs.index("ask")).tap()
-    s.pause(1.2)
+    open_app(s)
+    s.page.evaluate(overlay)
+    s.tab("ask")
+    app_frame = s.page
     s.mark()
     s.pause(0.8)
     box = app_frame.locator(".compose textarea").first
@@ -264,7 +281,7 @@ def shot_ask(s):
             raise SystemExit(f"ask: no delivery in {a['max_wait_sec']} s ({state.inner_text()!r})")
         if answering is None and state.evaluate("e => e.classList.contains('running')"):
             answering = s.now()
-            s.page.evaluate("t => window.showChip(t)", a["skip_chip"])  # on screen for the whole kept part
+            s.page.evaluate("t => window.vidChip(t)", a["skip_chip"])  # on screen for the whole kept part
         s.pause(0.25)
     delivered = s.now()
     msg = delivered_after(asked)
@@ -280,15 +297,14 @@ def shot_ask(s):
     s.mark(at=max(start + 0.3, s.ranges[-1][1]))
     s.cue("chime")
     s.pause(a["hold_delivered_sec"])
-    s.page.evaluate("() => window.hideChip()")
-    s.cue("tap")
-    s.page.evaluate("() => window.closeSheet()")
-    s.pause(0.5)
-    s.page.evaluate("t => window.addMessage('bot', t, true)", msg["text"])
+    s.page.evaluate("() => window.vidChipOff()")
+    s.page.evaluate("([t, n, x, m]) => window.vidReply(t, n, x, m)",
+                    [a["delivered_title"], a["delivered_note"], msg["text"], msg.get("parse_mode", "")])
     s.cue("chime")
+    s.pause(a["hold_reply_sec"])
 
 
-actions = {"open": shot_open, "ask": shot_ask, "status": shot_status, "cron": shot_cron, "sessions": shot_sessions,
+actions = {"ask": shot_ask, "status": shot_status, "cron": shot_cron, "sessions": shot_sessions,
          "logs": shot_logs, "brain": shot_brain}
 
 

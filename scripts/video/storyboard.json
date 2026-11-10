@@ -5,10 +5,10 @@
     "fps": 30
   },
   "phone": {
-    "screen_width": 700,
+    "screen_width": 760,
     "bezel": 20,
     "radius": 72,
-    "bottom_margin": 56
+    "bottom_margin": 28
   },
   "record": {
     "viewport_scale": 2,
@@ -27,96 +27,61 @@
     {
       "id": "title",
       "kind": "card",
-      "duration": 3,
+      "duration": 2.5,
       "lines": [
         "Hermes Telegram Mini App",
-        "Your Hermes agent, controlled from the chat you already use"
+        "Run your Hermes agent from Telegram"
       ]
     },
     {
-      "id": "open",
-      "kind": "mock",
-      "duration": 8,
-      "caption": "Opens from your bot's menu button. Telegram-signed login: no VPN, no password.",
-      "mock": {
-        "label": "Mock",
-        "bot": "Hermes",
-        "menu_button": "Panel",
-        "messages": [
-          {
-            "from": "bot",
-            "text": "Morning ops brief: two jobs ran overnight, one failed."
-          },
-          {
-            "from": "me",
-            "text": "Let me take a look."
-          }
-        ]
-      }
-    },
-    {
-      "id": "status",
-      "kind": "app",
-      "duration": 10,
-      "needs_live": true,
-      "caption": "Live from a real Hermes v{hermes_version}: host, sessions, cron and spend at a glance."
-    },
-    {
-      "id": "cron",
-      "kind": "app",
-      "duration": 10,
-      "caption": "Run now, pause, edit cron jobs. Failed runs are flagged."
-    },
-    {
-      "id": "sessions",
-      "kind": "app",
-      "duration": 7,
-      "caption": "Read what your agent did, from your phone."
-    },
-    {
-      "id": "logs",
-      "kind": "app",
-      "duration": 6,
-      "caption": "Tail agent, error and gateway logs. Filter by level."
-    },
-    {
-      "id": "brain",
-      "kind": "app",
-      "duration": 9,
-      "caption": "Browse your agent's skills. English and Malay built in.",
-      "filter": "review"
-    },
-    {
       "id": "ask",
-      "kind": "mock",
-      "duration": 18,
+      "kind": "app",
+      "duration": 22,
       "needs_live": true,
-      "caption": "Ask from the panel. The real Hermes reply lands in your chat (chat screen mocked).",
-      "mock": {
-        "label": "Mock",
-        "bot": "Hermes",
-        "menu_button": "Panel",
-        "messages": [
-          {
-            "from": "bot",
-            "text": "Release is tonight. Anything to check?"
-          }
-        ]
-      },
+      "caption": "Ask from your phone. Hermes answers in your Telegram chat.",
       "ask": {
         "question": "Three-bullet checklist before I ship a release tonight? No commands.",
         "type_delay_ms": 20,
         "hold_queued_sec": 1.6,
         "max_wait_sec": 240,
-        "lead_in_sec": 5,
-        "hold_delivered_sec": 1.6,
-        "skip_chip": "Skipped: the wait for Hermes's cron tick"
+        "lead_in_sec": 3,
+        "hold_delivered_sec": 1.0,
+        "skip_chip": "Skipped: the wait for Hermes's next tick",
+        "delivered_title": "Delivered to your Telegram chat",
+        "delivered_note": "Hermes's real reply, as Telegram shows it",
+        "hold_reply_sec": 5.0
       }
+    },
+    {
+      "id": "status",
+      "kind": "app",
+      "duration": 8,
+      "needs_live": true,
+      "caption": "Live from a real Hermes v{hermes_version}: host, sessions and cron."
+    },
+    {
+      "id": "cron",
+      "kind": "app",
+      "duration": 10,
+      "caption": "Run, pause and edit cron jobs. Failed runs are flagged."
+    },
+    {
+      "id": "sessions",
+      "kind": "app",
+      "duration": 7,
+      "caption": "Read what your agent did, step by step."
+    },
+    {
+      "id": "brain",
+      "kind": "app",
+      "duration": 8,
+      "caption": "Browse skills. English and Malay built in.",
+      "filter": "review"
     },
     {
       "id": "security",
       "kind": "card",
-      "duration": 6,
+      "duration": 5.5,
       "lines": [
         "Built to be safe on a phone",
         "HMAC + Ed25519 verified Telegram login",
@@ -128,7 +93,7 @@
     {
       "id": "close",
       "kind": "card",
-      "duration": 5,
+      "duration": 4.5,
       "lines": [
         "github.com/aimanmalib/hermes-telegram-miniapp",
         "Submitted to the Hermes plugin catalog as telegram-app",

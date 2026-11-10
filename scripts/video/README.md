@@ -10,7 +10,6 @@ Scripts for recording the demo video against a real Hermes Agent, not the demo b
 | `seed.json` | The prompts and cron jobs `seed.py` uses. Edit this, not the script. |
 | `storyboard.json` | Shots, captions, durations, phone frame size and the strings that must never be on screen (`FORBID_ON_SCREEN` adds your own, such as host names). Edit this, not the scripts. |
 | `record.py` | Records each screen shot with WebKit (iPhone 13, touch ripples, no pointer) against the Vite dev server, renders the cards and frames (`frames.py`), and writes `manifest.json`. Stops if a forbidden string or the token appears in the kept part of a shot. |
-| `telegram-mock.html` | The chat screen in the opening and Ask shots. It is a mock, labelled "Mock" for the whole shot; the panel inside it is the real app, and the reply shown in the Ask shot is the text Hermes delivered to the stand-in. |
 | `audio.py` | Writes the soundtrack (a generated chord bed, a tick per recorded tap, a chime when an answer arrives; no third-party audio) and the subtitles (one cue per caption) from `manifest.json`. |
 | `compose.sh` | Builds the mp4 from `manifest.json` with ffmpeg: H.264, yuv420p, AAC soundtrack normalised to the storyboard's loudness, an English subtitle track, `+faststart`, and the same subtitles as a `.srt` next to the video. `SAMPLE_DIR=<dir>` also saves one frame per shot. |
 
@@ -49,7 +48,9 @@ VIDEO_OUT=out VIDEO_FILE=out/demo.mp4 SAMPLE_DIR=out/samples scripts/video/compo
 ```
 
 The Ask shot waits for Hermes's cron ticker (up to a minute) and keeps two parts of the recording: asking, and
-the answer arriving. A chip over the second part says the wait was skipped; nothing is sped up or replayed.
+the answer arriving. A chip over the second part says the wait was skipped; nothing is sped up or replayed. The reply
+is then shown in a card labelled as the text Hermes delivered to the Bot API. There is no mock chat screen: the video
+shows only the real panel, plus these two labelled overlays (`overlay` in `record.py`).
 
 `RECORD_SHOTS=brain,logs` re-records only those shots and keeps the others from the last manifest. A caption marked
 `needs_live` is refused unless the rig summary says `live: true`. Cron jobs run only while a Hermes gateway

@@ -3,7 +3,7 @@
 Hermes's Telegram adapter accepts a custom ``base_url`` (meant for a self-hosted telegram-bot-api server).
 rig.sh points it here: the real gateway connects, the real cron ticker runs the Ask job, and the real
 delivery lane calls ``sendMessage`` on this server, which writes the message to a JSON-lines file instead
-of sending it anywhere. record.py reads the delivered text from that file for the mock chat screen.
+of sending it anywhere. record.py reads the delivered text (and its parse_mode) from that file for the Ask shot's reply card.
 
     BOT_API_PORT=9180 BOT_API_LOG=messages.jsonl python3 scripts/video/bot_api_stub.py
 
@@ -54,7 +54,7 @@ def result_for(method: str, params: dict):
         with _lock:
             message_id, _next_id[0] = _next_id[0], _next_id[0] + 1
             record = {"method": method, "chat_id": str(params.get("chat_id", "")), "text": params.get("text", ""),
-                      "message_id": message_id, "ts": time.time()}
+                      "parse_mode": params.get("parse_mode", ""), "message_id": message_id, "ts": time.time()}
             with open(LOG, "a", encoding="utf-8") as fh:
                 fh.write(json.dumps(record, ensure_ascii=False) + "\n")
         return {"message_id": message_id, "date": int(time.time()), "from": BOT, "text": params.get("text", ""),

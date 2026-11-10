@@ -87,9 +87,10 @@ def test_stub_parses_json_form_and_multipart(stub):
 def test_stub_records_sent_messages(stub, tmp_path, monkeypatch):
     log = tmp_path / "messages.jsonl"
     monkeypatch.setattr(stub, "LOG", str(log))
-    sent = stub.result_for("sendMessage", {"chat_id": "42", "text": "*answer*"})
+    sent = stub.result_for("sendMessage", {"chat_id": "42", "text": "*answer*", "parse_mode": "MarkdownV2"})
     assert sent["chat"]["id"] == 42 and sent["text"] == "*answer*"
     line = json.loads(log.read_text().splitlines()[-1])
     assert line["chat_id"] == "42" and line["text"] == "*answer*" and line["method"] == "sendMessage"
+    assert line["parse_mode"] == "MarkdownV2"
     assert stub.result_for("getMe", {})["is_bot"] is True
     assert stub.result_for("setMyCommands", {}) is True

@@ -29,15 +29,24 @@ def test_storyboard_fits_an_x_video(board):
     assert sum(s["duration"] for s in board["shots"]) <= 89.5
     assert len({s["id"] for s in board["shots"]}) == len(board["shots"])
     for shot in board["shots"]:
-        assert shot["kind"] in {"card", "mock", "app"}
+        assert shot["kind"] in {"card", "app"}
         assert shot["duration"] > 2 * board["fade_sec"]
         assert shot.get("caption") or shot.get("lines")
 
 
-def test_mock_screen_is_labelled(board):
+def test_no_mock_screens(board):
+    # Judges score reliability and "show the plugin working": every screen shot is the real panel, and the
+    # Ask reply is shown as the text Hermes delivered, labelled as such (no mock chat).
     for shot in board["shots"]:
-        if shot["kind"] == "mock":
-            assert shot["mock"]["label"].strip()
+        assert "mock" not in shot
+        assert "mock" not in (shot.get("caption") or "").lower()
+    ask = next(s for s in board["shots"] if s["id"] == "ask")["ask"]
+    assert ask["delivered_title"].strip() and ask["delivered_note"].strip() and ask["skip_chip"].strip()
+
+
+def test_caption_band_fits_two_lines(frames, board):
+    screen, outer = frames.phone_box(board)
+    assert outer["y"] >= 160  # two 54 px caption lines above the phone
 
 
 def test_phone_screen_keeps_the_viewport_ratio_and_fits(frames, board):

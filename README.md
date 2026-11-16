@@ -9,7 +9,7 @@
 
 Run, stop and edit your [Hermes Agent](https://github.com/NousResearch/hermes-agent) cron jobs, check spend, read sessions and logs, and get a Telegram alert when a run fails, all from your bot's menu button.
 
-No VPN, password or new account: login checks the `initData` Telegram signs for the Mini App against an admin list that refuses everyone until you fill it in, and only `/api/plugins/telegram-app/*` needs to face the internet. It ships as a Hermes **dashboard plugin** plus a small React app; nothing in Hermes is patched. CI installs a real Hermes v0.23.0 and drives the plugin through its dashboard on every change, the [security review](SECURITY-REVIEW.md) is public, and there are 10 tagged releases.
+No VPN, password or new account: login checks the `initData` Telegram signs for the Mini App against an admin list that refuses everyone until you fill it in, and only `/api/plugins/telegram-app/*` needs to face the internet. It ships as a Hermes **dashboard plugin** plus a small React app; nothing in Hermes is patched. CI installs real Hermes v0.23.0 and v0.23.1 and drives the plugin through its dashboard on every change, the [security review](SECURITY-REVIEW.md) is public, and there are 10 tagged releases.
 
 ### Why a Mini App, not the dashboard on your phone
 
@@ -91,7 +91,7 @@ This panel controls an AI agent, so the login path is strict. The full review, w
 
 ## Compatibility
 
-**Tested by running Hermes v0.23.0 in CI.** For each release listed in [`compat/hermes-versions.json`](compat/hermes-versions.json), the `hermes-contract` job installs that Hermes, links the plugin into a temporary Hermes home with synthetic credentials, and calls `/health`, login, status, sessions, cron (including stop and catch-up) and logs through the real dashboard app (`tests/contract/`). The plugin declares `requires_hermes: ">=0.23.0"` and passes `hermes plugins validate`.
+**Tested with NousResearch/hermes-agent v0.23.1 and v0.23.0 in CI.** For each release listed in [`compat/hermes-versions.json`](compat/hermes-versions.json), the `hermes-contract` job installs that Hermes, links the plugin into a temporary Hermes home with synthetic credentials, and calls `/health`, login, status, sessions, cron (including stop and catch-up) and logs through the real dashboard app (`tests/contract/`). The plugin declares `requires_hermes: ">=0.23.0"` and passes `hermes plugins validate`.
 
 What the plugin uses from Hermes:
 
@@ -276,7 +276,7 @@ The evidence that it works is meant to be checkable:
 
 - The test suite, run with `python -m pytest` and `cd web && npm test`.
 - CI on Python 3.11 and 3.12, and Node 22 for every pull request.
-- Contract tests in CI that install real Hermes v0.23.0 and call the plugin through the Hermes dashboard app.
+- Contract tests in CI that install real Hermes (v0.23.0 and v0.23.1) and call the plugin through the Hermes dashboard app.
 - 9 tagged releases, with notes in [CHANGELOG.md](CHANGELOG.md).
 
 ## Bahasa Melayu
@@ -303,7 +303,8 @@ token sesi yang dipulangkan membuka seluruh API dashboard. Butiran penuh dalam [
 [SECURITY-REVIEW.md](https://github.com/aimanmalib/hermes-telegram-miniapp/blob/main/SECURITY-REVIEW.md).
 
 **Pasang.** Perlu Hermes dengan dashboard (v0.23.0 ke atas, mod token loopback), bot dari @BotFather, ID pengguna Telegram anda,
-domain dengan HTTPS dan Node.js 22 (atau 20.19+).
+domain dengan HTTPS dan Node.js 22 (atau 20.19+). Diuji dengan NousResearch/hermes-agent v0.23.1 dan v0.23.0 dalam CI: setiap
+versi dalam `compat/hermes-versions.json` dipasang dan pemalam dipanggil melalui dashboard Hermes yang sebenar.
 
 1. Tetapkan `TELEGRAM_BOT_TOKEN` dan `TELEGRAM_OWNER_ID` dalam `~/.hermes/.env`, dan tambah `telegram-app` di bawah
    `plugins.enabled` dalam `~/.hermes/config.yaml`.

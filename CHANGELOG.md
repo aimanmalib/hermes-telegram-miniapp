@@ -5,6 +5,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Tested with NousResearch/hermes-agent v0.23.1: the contract job now installs v0.23.1 as well as v0.23.0 and
+  passes on both. The plugin code is unchanged.
+
 ## [0.7.0] - 2026-11-08
 
 ### Added

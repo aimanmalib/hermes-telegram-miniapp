@@ -5,7 +5,11 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+import sys
+
 from fastapi import APIRouter, HTTPException
+
+compat = sys.modules["hermes_tma_hermes_compat"]  # loaded first by plugin_api.py
 
 router = APIRouter()
 _log = logging.getLogger("hermes.plugin.telegram-app")
@@ -15,10 +19,7 @@ _log = logging.getLogger("hermes.plugin.telegram-app")
 async def sessions_list(limit: int = 30, source: Optional[str] = None):
     """Recent sessions, slimmed for mobile UI (omits the ~20KB system prompt)."""
     try:
-        from hermes_state import SessionDB  # type: ignore
-        rows = SessionDB().list_sessions_rich(
-            source=source, limit=limit, order_by_last_active=True,
-        )
+        rows = compat.list_sessions(limit=limit, source=source)
         return {
             "sessions": [
                 {
@@ -47,10 +48,7 @@ async def sessions_list(limit: int = 30, source: Optional[str] = None):
 async def session_messages(session_id: str, limit: int = 200):
     """Messages for a session. ``limit`` clamps the trailing slice for the UI."""
     try:
-        from hermes_state import SessionDB  # type: ignore
-        msgs = SessionDB().get_messages(session_id=session_id) or []
-        if limit and len(msgs) > limit:
-            msgs = msgs[-limit:]
+        msgs = compat.session_messages(session_id, limit)
         # Slim each message: drop tool_calls payloads + reasoning to keep
         # the response phone-friendly. The dashboard's full message view
         # uses upstream /api/sessions/{id}/messages for full fidelity.

@@ -13,6 +13,8 @@ file (and the contract tests that exercise it):
 * ``cron.jobs`` — probed for optional features (``capabilities``);
 * ``agent.secret_scope.get_secret`` — Hermes's credential route;
 * ``hermes_constants.get_hermes_home`` — the Hermes home directory;
+* ``persistence_assembly`` (or ``hermes_state.SessionDB`` before Hermes v0.23.4)
+  — read-only session listings, counts and transcripts;
 * ``PluginContext.get_config`` — the plugin's own settings in ``config.yaml``.
 
 The module has no import-time side effects; ``plugin/__init__.py`` registers
@@ -268,3 +270,89 @@ def secret(name: str, default: str = "") -> str:
         _log.warning("telegram-app: cannot read %s here (%s); treating it as unset", name, type(exc).__name__)
         return default
     return (value or "").strip() or default
+
+
+# ---------------------------------------------------------------------------
+# Session store, read-only.
+#
+# Hermes v0.23.4 put sessions behind a storage interface (``persistence_assembly``)
+# and turned ``hermes_state.SessionDB`` into a deprecated stand-in that warns on
+# first use and is removed in v0.27.0. Older releases (down to the declared
+# minimum) have only ``SessionDB``. The plugin only reads sessions, so the new
+# path opens a reader, which never creates, migrates or repairs the store, and
+# closes it after each call. A Hermes home with no store yet reads as empty.
+# ---------------------------------------------------------------------------
+def _storage():
+    """The storage-interface modules, or ``None`` on a Hermes that predates them."""
+    try:
+        import persistence_assembly as pa  # type: ignore
+        from persistence.conversation import messages as msgs  # type: ignore
+        from persistence.conversation import sessions as sess  # type: ignore
+    except ImportError:
+        return None
+    return pa, sess, msgs
+
+
+def _reader(pa):
+    """A read-only store handle for the active profile, or ``None`` when that profile has no store yet."""
+    scope = pa.profile_scope()
+    location = pa.store_location(scope)
+    if location is not None and not Path(location).exists():
+        return None
+    return pa.open_persistence_reader(scope.profile_dir)
+
+
+def _legacy_call(method: str, **kwargs):
+    from hermes_state import SessionDB  # type: ignore  # Hermes before the storage interface
+
+    db = SessionDB()
+    try:
+        return getattr(db, method)(**kwargs)
+    finally:
+        close = getattr(db, "close", None)
+        if callable(close):
+            close()
+
+
+def list_sessions(limit: int, source: Optional[str] = None) -> list[dict]:
+    """Sessions as the dashboard's listing rows, most recently active first."""
+    storage = _storage()
+    if storage is None:
+        return _legacy_call("list_sessions_rich", source=source, limit=limit, order_by_last_active=True)
+    pa, sess, _ = storage
+    reader = _reader(pa)
+    if reader is None:
+        return []
+    query = sess.SessionQuery(sources=(source,) if source else None, order=sess.SessionOrder.LAST_ACTIVE)
+    with reader as store:
+        return [entry.as_list_row() for entry in store.sessions.list_sessions(query, sess.SessionWindow(limit=limit))]
+
+
+def count_sessions() -> int:
+    storage = _storage()
+    if storage is None:
+        try:
+            return int(_legacy_call("session_count"))
+        except AttributeError:  # releases without session_count
+            return len(_legacy_call("list_sessions_rich", limit=1000))
+    pa, _, _ = storage
+    reader = _reader(pa)
+    if reader is None:
+        return 0
+    with reader as store:
+        return int(store.sessions.count_sessions())
+
+
+def session_messages(session_id: str, limit: int) -> list[dict]:
+    """The session's active transcript as wire rows, oldest first; ``limit`` keeps the newest N (0 = all)."""
+    storage = _storage()
+    if storage is None:
+        rows = _legacy_call("get_messages", session_id=session_id) or []
+        return rows[-limit:] if limit and len(rows) > limit else rows
+    pa, _, msgs = storage
+    reader = _reader(pa)
+    if reader is None:
+        return []
+    request = msgs.TranscriptRead(limit=limit, latest=True) if limit else msgs.TranscriptRead()
+    with reader as store:
+        return [row.as_wire_row() for row in store.messages.read_transcript(session_id, request)]

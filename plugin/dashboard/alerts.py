@@ -362,12 +362,9 @@ def _check_cost_threshold(state: Dict[str, Any], settings: Dict[str, Any]) -> No
     if state.get("cost_alerted_for_day") == today:
         return
     try:
-        from hermes_state import SessionDB  # type: ignore
-        rows = SessionDB().list_sessions_rich(
-            limit=500, order_by_last_active=True
-        )
+        rows = _compat().list_sessions(limit=500)
     except Exception as exc:
-        _log.debug("alerts: SessionDB unavailable: %s", exc)
+        _log.debug("alerts: session store unavailable: %s", exc)
         return
 
     midnight = _dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)

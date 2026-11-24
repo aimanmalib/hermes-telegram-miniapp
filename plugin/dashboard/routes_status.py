@@ -44,12 +44,7 @@ async def status_endpoint():
 
     sessions_count = 0
     try:
-        from hermes_state import SessionDB  # type: ignore
-        db = SessionDB()
-        if hasattr(db, "session_count"):
-            sessions_count = int(db.session_count())
-        else:  # older Hermes
-            sessions_count = len(db.list_sessions_rich(limit=1000))
+        sessions_count = compat.count_sessions()
     except Exception:
         pass
 
@@ -116,13 +111,9 @@ async def usage_summary(window: str = "today", top: int = 5):
     top = max(1, min(20, int(top)))
 
     try:
-        from hermes_state import SessionDB  # type: ignore
         # Pull a generous slice — ordered by recency. For 'all' grab a hard
         # cap so we don't walk the whole DB just for a phone widget.
-        rows = SessionDB().list_sessions_rich(
-            limit=2000 if window == "all" else 500,
-            order_by_last_active=True,
-        )
+        rows = compat.list_sessions(limit=2000 if window == "all" else 500)
     except Exception as exc:
         _log.exception("usage list failed")
         raise HTTPException(status_code=500, detail=str(exc))

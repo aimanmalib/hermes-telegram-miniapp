@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-24
+
 ### Changed
 
 - Sessions are read through Hermes's storage interface (`persistence_assembly`) on Hermes v0.23.4 and later, so the
@@ -12,7 +14,7 @@ All notable changes to this project are documented here. The format follows
   is removed in v0.27.0. Older Hermes still uses `SessionDB`. Reads open a read-only handle and close it after each
   call, and a Hermes home with no session store yet lists as empty. The contract job now also tests v0.23.4.
 - Tested with NousResearch/hermes-agent v0.23.1: the contract job now installs v0.23.1 as well as v0.23.0 and
-  passes on both. The plugin code is unchanged.
+  passes on both.
 
 ## [0.7.0] - 2026-11-08
 
